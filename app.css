@@ -68,8 +68,6 @@
 .diagram-sticky { border-radius: 3px; border-color: rgba(120,85,20,.24); box-shadow: 0 8px 18px rgba(80,58,9,.14); }
 .diagram-sticky::after { content: ""; position: absolute; right: 0; bottom: 0; border: 13px solid transparent; border-right-color: rgba(0,0,0,.08); border-bottom-color: rgba(0,0,0,.08); }
 .diagram-ellipse { border-radius: 999px; }
-.diagram-diamond { border-radius: 10px; transform: rotate(45deg); }
-.diagram-diamond textarea { transform: rotate(-45deg); width: 72%; height: 72%; }
 .diagram-text { border-color: transparent; box-shadow: none; }
 .diagram-image { overflow: hidden; background: white !important; }
 .diagram-image img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }

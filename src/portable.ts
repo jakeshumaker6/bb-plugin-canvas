@@ -7,6 +7,7 @@ import {
   type BoardNode,
 } from "./domain";
 import { connectorLabelPoint, connectorPath } from "./connectors";
+import { shapePath } from "./shapes";
 
 /** Imported files are untrusted: cap the text before anything parses it. */
 const MAX_IMPORT_CHARS = 5_000_000;
@@ -199,15 +200,15 @@ function shapeElement(node: BoardNode): string {
       return `<rect x="${num(node.x)}" y="${num(node.y)}" width="${num(node.width)}" height="${num(node.height)}" rx="12" ${common} />`;
     case "ellipse":
       return `<ellipse cx="${num(node.x + node.width / 2)}" cy="${num(node.y + node.height / 2)}" rx="${num(node.width / 2)}" ry="${num(node.height / 2)}" ${common} />`;
-    case "diamond": {
-      const points = [
-        [node.x + node.width / 2, node.y],
-        [node.x + node.width, node.y + node.height / 2],
-        [node.x + node.width / 2, node.y + node.height],
-        [node.x, node.y + node.height / 2],
-      ];
-      return `<polygon points="${points.map(([px, py]) => `${num(px!)},${num(py!)}`).join(" ")}" ${common} />`;
-    }
+    case "diamond":
+    case "cylinder":
+    case "cloud":
+    case "parallelogram":
+    case "hexagon":
+    case "triangle":
+    case "actor":
+      // One source of truth for geometry: the same path the canvas draws, moved into place.
+      return `<path d="${shapePath(node.kind, node.width, node.height)}" transform="translate(${num(node.x)} ${num(node.y)})" ${common} />`;
     case "image":
       return node.imageData === undefined
         ? `<rect x="${num(node.x)}" y="${num(node.y)}" width="${num(node.width)}" height="${num(node.height)}" fill="${PALETTE.gray}" stroke="${INK}" stroke-opacity="0.18" stroke-dasharray="6 4" />`

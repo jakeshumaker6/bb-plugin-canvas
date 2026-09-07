@@ -26,10 +26,14 @@ fills the middle, and the **Chat** tab sits beside it.
 
 ## Features
 
-**Objects.** Sticky notes, rectangles, ellipses, diamonds, free text, and
-images. Every object carries its own fill colour (seven presets plus a custom
-colour picker), font family (Inter, serif, mono), font size, weight, and text
-alignment. Objects can be locked in place and grouped.
+**Objects.** Sticky notes, free text, images, and nine shapes: rectangle,
+ellipse, diamond, cylinder (a datastore), cloud (an external service),
+parallelogram (input or output), hexagon (a process), triangle (a decision), and
+actor (a person or role). Text stays inside the outline at any size — a label in
+a cylinder clears the rim, a label in a triangle sits below the slope. Every
+object carries its own fill colour (seven presets plus a custom colour picker),
+font family (Inter, serif, mono), font size, weight, and text alignment. Objects
+can be locked in place and grouped.
 
 **Selection.** Click to select, shift-click to extend, drag on empty canvas for
 a marquee. Touching one member of a group selects the whole group. Locked
@@ -82,7 +86,7 @@ ignored while the focus is in a text field, a textarea, or an editable object.
 | `V` | Select tool |
 | `H` | Hand tool (pan) |
 | `S` | Sticky note tool |
-| `R` | Rectangle tool |
+| `R` | Shape tool (the picker offers all nine shapes) |
 | `O` | Ellipse tool |
 | `D` | Diamond tool |
 | `T` | Text tool |

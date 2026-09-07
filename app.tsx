@@ -19,6 +19,8 @@ import type {
 } from "./src/domain";
 import { serializeBoardJson, serializeBoardSvg } from "./src/portable";
 import { connectorLabelPoint, connectorPath } from "./src/connectors";
+import { SHAPE_KINDS, SHAPE_LABELS, shapeClipPath, shapePath, textInset, type ShapeKind } from "./src/shapes";
+import { ShapeGlyph } from "./components/shape-glyph";
 import { CLIPBOARD_MIME, imageNodeOperation, parseClipboard, pasteOperations, serializeSelection } from "./src/clipboard";
 import {
   distributeOperations,
@@ -50,8 +52,9 @@ import { viewportCenteredOn } from "./src/navigation";
 import "./app.css";
 import "./styles/context-menu.css";
 import "./styles/navigation.css";
+import "./styles/shapes.css";
 
-type Tool = "select" | "hand" | "sticky" | "rectangle" | "ellipse" | "diamond" | "text" | "connector" | "comment";
+type Tool = "select" | "hand" | "sticky" | ShapeKind | "text" | "connector" | "comment";
 type DockTool = "select" | "hand" | "sticky" | "shapes" | "text" | "connector" | "comment";
 
 const COLORS = [
@@ -106,8 +109,19 @@ const PLACEMENT_OFFSETS: Record<Exclude<BoardNodeKind, "image">, { x: number; y:
   rectangle: { x: 110, y: 60 },
   ellipse: { x: 100, y: 65 },
   diamond: { x: 90, y: 90 },
+  cylinder: { x: 90, y: 70 },
+  cloud: { x: 110, y: 70 },
+  parallelogram: { x: 110, y: 55 },
+  hexagon: { x: 100, y: 60 },
+  triangle: { x: 90, y: 75 },
+  actor: { x: 60, y: 85 },
   text: { x: 120, y: 36 },
 };
+
+const SHAPE_TOOLS = SHAPE_KINDS as readonly ShapeKind[];
+function isShapeKind(value: string): value is ShapeKind {
+  return SHAPE_TOOLS.includes(value as ShapeKind);
+}
 
 function AlignGlyph({ edge }: { edge: AlignEdge }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const };
@@ -313,6 +327,9 @@ function DiagramNode({
 }) {
   const nodeRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
+  const shape = isShapeKind(node.kind) ? node.kind : null;
+  const clip = shape === null ? null : shapeClipPath(shape, node.width, node.height);
+  const inset = shape === null ? null : textInset(shape, node.width, node.height);
   const [draft, setDraft] = useState(node.text);
   useEffect(() => setDraft(node.text), [node.text]);
   useEffect(() => {
@@ -324,13 +341,23 @@ function DiagramNode({
     <div
       ref={nodeRef}
       className={`diagram-node diagram-${node.kind} ${selected ? "is-selected" : ""} ${soloSelected && !node.locked ? "is-solo" : ""} ${editing ? "is-editing" : ""} ${connectorSource ? "is-connector-source" : ""}`}
+      data-shape={shape ?? undefined}
+      data-shape-outline={shape !== null && clip === null ? "true" : undefined}
       style={{
         left: node.x,
         top: node.y,
         width: node.width,
         height: node.height,
         backgroundColor: node.kind === "text" || node.kind === "image" ? "transparent" : colorValue(node.color),
-      }}
+        ...(clip === null ? {} : { "--shape-clip": clip }),
+        ...(shape === null ? {} : { "--diagram-node-bg": colorValue(node.color) }),
+        ...(inset === null ? {} : {
+          "--shape-pad-top": `${inset.top}px`,
+          "--shape-pad-right": `${inset.right}px`,
+          "--shape-pad-bottom": `${inset.bottom}px`,
+          "--shape-pad-left": `${inset.left}px`,
+        }),
+      } as CSSProperties}
       data-node-id={node.id}
       onPointerDown={(event) => {
         event.stopPropagation();
@@ -354,6 +381,11 @@ function DiagramNode({
         if (Math.abs(width - node.width) > 2 || Math.abs(height - node.height) > 2) onResize(width, height);
       }}
     >
+      {shape !== null && clip === null ? (
+        <svg className="diagram-shape-outline" viewBox={`0 0 ${node.width} ${node.height}`} preserveAspectRatio="none" aria-hidden="true">
+          <path d={shapePath(shape, node.width, node.height)} />
+        </svg>
+      ) : null}
       {node.kind === "image" && node.imageData !== undefined ? (
         <img src={node.imageData} alt={node.text || "Imported diagram"} draggable={false} />
       ) : (
@@ -902,7 +934,7 @@ function BoardWorkspace({ board, onBoardChange }: { board: BoardDocument; onBoar
       window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
       return;
     }
-    if (["sticky", "rectangle", "ellipse", "diamond", "text"].includes(tool)) {
+    if (tool === "sticky" || tool === "text" || isShapeKind(tool)) {
       const point = canvasPoint(event.clientX, event.clientY);
       createNode(tool as BoardNodeKind, point.x, point.y);
       return;
@@ -1161,10 +1193,10 @@ function BoardWorkspace({ board, onBoardChange }: { board: BoardDocument; onBoar
       )}
       {shapeMenuOpen ? (
         <div className="canvas-shape-picker" role="toolbar" aria-label="Shape choices">
-          {(["rectangle", "ellipse", "diamond"] as const).map((kind) => (
-            <button key={kind} aria-label={kind[0]!.toUpperCase() + kind.slice(1)} className={tool === kind ? "is-active" : ""} onClick={() => { setTool(kind); setShapeMenuOpen(false); }}>
-              <ToolGlyph id={kind} />
-              <span>{kind}</span>
+          {SHAPE_TOOLS.map((kind) => (
+            <button key={kind} aria-label={SHAPE_LABELS[kind]} className={tool === kind ? "is-active" : ""} onClick={() => { setTool(kind); setShapeMenuOpen(false); }}>
+              <ShapeGlyph kind={kind} />
+              <span>{SHAPE_LABELS[kind]}</span>
             </button>
           ))}
         </div>
@@ -1174,7 +1206,7 @@ function BoardWorkspace({ board, onBoardChange }: { board: BoardDocument; onBoar
           <ToolButton
             key={item.id}
             item={item}
-            active={item.id === "shapes" ? ["rectangle", "ellipse", "diamond"].includes(tool) || shapeMenuOpen : tool === item.id}
+            active={item.id === "shapes" ? isShapeKind(tool) || shapeMenuOpen : tool === item.id}
             onClick={() => {
               if (item.id === "shapes") { setShapeMenuOpen((open) => !open); return; }
               setShapeMenuOpen(false);

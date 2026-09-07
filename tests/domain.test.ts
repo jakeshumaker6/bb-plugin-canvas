@@ -554,3 +554,47 @@ describe("rejections", () => {
     expect(board.nodes[0]!.text).toBe("");
   });
 });
+
+describe("extended shape kinds", () => {
+  const SHAPES = ["cylinder", "cloud", "parallelogram", "hexagon", "triangle", "actor"] as const;
+
+  it("accepts every shape the shape library can draw", () => {
+    const board = applyBoardOperations(
+      createEmptyBoard({ id: "shapes", title: "Shapes", now: "2026-09-07T12:00:00.000Z" }),
+      SHAPES.map((kind, index) => ({
+        type: "add_node" as const,
+        node: { id: kind, kind, x: index * 260, y: 0, color: "blue" },
+      })),
+      { now: "2026-09-07T12:00:00.000Z", makeId: () => "generated" },
+    );
+    expect(board.nodes.map((node) => node.kind)).toEqual([...SHAPES]);
+    for (const node of board.nodes) {
+      expect(node.width).toBeGreaterThanOrEqual(40);
+      expect(node.height).toBeGreaterThanOrEqual(32);
+    }
+  });
+
+  it("gives every shape a default size and typography", () => {
+    const board = applyBoardOperations(
+      createEmptyBoard({ id: "shapes", title: "Shapes", now: "2026-09-07T12:00:00.000Z" }),
+      [{ type: "add_node", node: { id: "db", kind: "cylinder", x: 0, y: 0, color: "blue" } }],
+      { now: "2026-09-07T12:00:00.000Z", makeId: () => "generated" },
+    );
+    expect(board.nodes[0]).toMatchObject({ fontFamily: "inter", fontWeight: 600, textAlign: "center", locked: false, groupId: null });
+  });
+
+  it("connects and reshapes an extended shape like any other node", () => {
+    let board = applyBoardOperations(
+      createEmptyBoard({ id: "shapes", title: "Shapes", now: "2026-09-07T12:00:00.000Z" }),
+      [
+        { type: "add_node", node: { id: "a", kind: "actor", x: 0, y: 0, color: "yellow" } },
+        { type: "add_node", node: { id: "b", kind: "cylinder", x: 400, y: 0, color: "blue" } },
+        { type: "add_edge", edge: { id: "e", source: "a", target: "b", color: "ink", routing: "elbow" } },
+      ],
+      { now: "2026-09-07T12:00:00.000Z", makeId: () => "generated" },
+    );
+    board = applyBoardOperations(board, [{ type: "update_node", id: "b", patch: { text: "Orders" } }], { now: "n", makeId: () => "g" });
+    expect(board.nodes[1]?.text).toBe("Orders");
+    expect(board.edges).toHaveLength(1);
+  });
+});

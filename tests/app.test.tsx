@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import { loadPluginApp, renderSlot, type RpcCall } from "@get-bb/plugin-sdk/testing/app";
 import type { BoardDocument, BoardOperation, BoardSummary } from "../src/domain";
+import { SHAPE_KINDS, SHAPE_LABELS } from "../src/shapes";
 
 const summary: BoardSummary = {
   id: "board-1",
@@ -135,7 +136,9 @@ describe("Canvas bb surface", () => {
     fireEvent.click(within(dock).getByRole("button", { name: "Shapes" }));
     const picker = view.getByRole("toolbar", { name: "Shape choices" });
     expect(within(picker).getAllByRole("button").map((button) => button.getAttribute("aria-label")))
-      .toEqual(["Rectangle", "Ellipse", "Diamond"]);
+      .toEqual(SHAPE_KINDS.map((kind) => SHAPE_LABELS[kind]));
+    // The picker is the only place shapes are offered, so it must stay in step with the library.
+    expect(within(picker).getAllByRole("button")).toHaveLength(9);
   });
 
   it("puts color, typography, comments, duplicate, and delete beside a selected object", async () => {
@@ -273,6 +276,49 @@ describe("Canvas bb surface", () => {
     } finally {
       vi.restoreAllMocks();
     }
+  });
+
+  it("places every library shape on the board and draws its real geometry", async () => {
+    const view = await openBoard(rpcFor());
+    const dock = view.getByRole("toolbar", { name: "Canvas tools" });
+    fireEvent.click(within(dock).getByRole("button", { name: "Shapes" }));
+    const picker = view.getByRole("toolbar", { name: "Shape choices" });
+    fireEvent.click(within(picker).getByRole("button", { name: SHAPE_LABELS.cylinder }));
+    fireEvent.pointerDown(view.getByTestId("canvas-surface"), { clientX: 320, clientY: 240, button: 0 });
+    await waitFor(() => {
+      const call = view.inspection.rpcCalls.find((item) => item.method === "board_apply_operations");
+      const operations = (call?.input as { operations: Array<{ node?: { kind: string } }> }).operations;
+      expect(operations[0]?.node?.kind).toBe("cylinder");
+    });
+    view.lifecycle.unmount();
+  });
+
+  it("clips the shapes CSS can express and outlines the ones it cannot", async () => {
+    const drawn: BoardDocument = {
+      ...board,
+      nodes: [
+        { ...boardWithSticky.nodes[0]!, id: "hex", kind: "hexagon", x: 0, y: 0 },
+        { ...boardWithSticky.nodes[0]!, id: "cyl", kind: "cylinder", x: 400, y: 0 },
+      ],
+    };
+    const view = await openBoard(rpcFor(drawn));
+    const hexagon = view.container.querySelector('[data-node-id="hex"]') as HTMLElement;
+    const cylinder = view.container.querySelector('[data-node-id="cyl"]') as HTMLElement;
+    // A hexagon is a polygon, so CSS clips the existing element and keeps the textarea inside it.
+    expect(hexagon.getAttribute("data-shape")).toBe("hexagon");
+    expect(hexagon.getAttribute("data-shape-outline")).toBeNull();
+    expect(hexagon.style.getPropertyValue("--shape-clip")).toContain("polygon");
+    expect(hexagon.querySelector(".diagram-shape-outline")).toBeNull();
+    // A cylinder has curved edges CSS cannot clip, so it paints a real path instead.
+    expect(cylinder.getAttribute("data-shape-outline")).toBe("true");
+    const path = cylinder.querySelector(".diagram-shape-outline path");
+    expect(path?.getAttribute("d")).toContain("M");
+    expect(path?.getAttribute("d")).not.toContain("NaN");
+    // Text is inset so it clears the cylinder's rim rather than overlapping it.
+    expect(Number.parseFloat(cylinder.style.getPropertyValue("--shape-pad-top"))).toBeGreaterThan(
+      Number.parseFloat(hexagon.style.getPropertyValue("--shape-pad-top")),
+    );
+    view.lifecycle.unmount();
   });
 
   it("renders the board-scoped chat tab", async () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseBoardImport, serializeBoardJson, serializeBoardSvg } from "../src/portable";
 import { connectorPath } from "../src/connectors";
+import { shapePath } from "../src/shapes";
 import {
   applyBoardOperations,
   createEmptyBoard,
@@ -128,7 +129,8 @@ describe("serializeBoardSvg", () => {
     const svg = serializeBoardSvg(board);
     expect(svg).toContain('fill="#fde68a"');
     expect(svg).toContain("<ellipse");
-    expect(svg).toContain("<polygon");
+    // Angular shapes now come from the shared geometry, so the file matches the canvas exactly.
+    expect(svg).toContain(`<path d="${shapePath("diamond", 180, 180)}" transform="translate(800 0)"`);
     expect(svg).toContain('font-size="24"');
     expect(svg).toContain('font-weight="700"');
     expect(svg).toContain('text-anchor="end"');
