@@ -1,0 +1,114 @@
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
+import type { BoardNode } from "../src/domain";
+import { matchNodes } from "../src/navigation";
+
+const MAX_RESULTS = 30;
+
+function label(node: BoardNode): string {
+  const text = node.text.replace(/\s+/g, " ").trim();
+  return text === "" ? `Untitled ${node.kind}` : text;
+}
+
+/**
+ * Find-object palette. Sits centred near the top of `.canvas-surface`, under the
+ * board header and clear of the bottom toolbar/zoom/history clusters.
+ */
+export function CanvasFind({
+  nodes,
+  onFocus,
+  onClose,
+}: {
+  nodes: readonly BoardNode[];
+  onFocus: (node: BoardNode) => void;
+  onClose: () => void;
+}): JSX.Element {
+  const [query, setQuery] = useState("");
+  const [highlight, setHighlight] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const baseId = useId();
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const results = useMemo(() => matchNodes(nodes, query).slice(0, MAX_RESULTS), [nodes, query]);
+  const active = results.length === 0 ? -1 : Math.min(highlight, results.length - 1);
+  const activeId = active < 0 ? undefined : `${baseId}-option-${active}`;
+
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+      return;
+    }
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      if (results.length === 0) return;
+      const step = event.key === "ArrowDown" ? 1 : -1;
+      setHighlight((active + step + results.length) % results.length);
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const chosen = active < 0 ? undefined : results[active];
+      if (chosen !== undefined) onFocus(chosen);
+    }
+  };
+
+  return (
+    <div className="canvas-find" role="dialog" aria-label="Find on board" onKeyDown={onKeyDown}>
+      <div className="canvas-find-head">
+        <label className="canvas-find-label" htmlFor={`${baseId}-input`}>Find on board</label>
+        <button type="button" className="canvas-find-close" onClick={onClose} aria-label="Close find">Esc</button>
+      </div>
+      <input
+        ref={inputRef}
+        id={`${baseId}-input`}
+        className="canvas-find-input"
+        type="text"
+        autoComplete="off"
+        placeholder="Search objects by text or kind"
+        role="combobox"
+        aria-expanded={results.length > 0}
+        aria-controls={`${baseId}-listbox`}
+        aria-activedescendant={activeId}
+        value={query}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setHighlight(0);
+        }}
+      />
+      <p className="canvas-find-count" role="status" aria-live="polite">
+        {query.trim() === ""
+          ? `${nodes.length} objects on this board`
+          : `${results.length} ${results.length === 1 ? "match" : "matches"}`}
+      </p>
+      {results.length === 0 ? (
+        query.trim() === "" ? null : <p className="canvas-find-empty">No matches for “{query.trim()}”.</p>
+      ) : (
+        <ul className="canvas-find-results" id={`${baseId}-listbox`} role="listbox" aria-label="Matching objects">
+          {results.map((node, index) => (
+            <li
+              key={node.id}
+              id={`${baseId}-option-${index}`}
+              role="option"
+              aria-selected={index === active}
+              className={index === active ? "is-active" : ""}
+              onPointerDown={(event) => {
+                event.preventDefault();
+                setHighlight(index);
+                onFocus(node);
+              }}
+              onPointerMove={() => setHighlight(index)}
+            >
+              <span className="canvas-find-text">{label(node)}</span>
+              <span className="canvas-find-kind">{node.kind}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}

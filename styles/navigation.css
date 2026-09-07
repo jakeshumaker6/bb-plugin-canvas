@@ -1,0 +1,160 @@
+/* Board navigation: minimap (bottom-right, above the undo/redo cluster) and the
+   find-object palette (top-centre of the canvas surface). Both use app.css
+   custom properties so they follow the light and dark themes. */
+
+.canvas-minimap {
+  position: absolute;
+  z-index: 20;
+  right: 14px;
+  bottom: 58px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--card) 95%, transparent);
+  box-shadow: 0 10px 28px color-mix(in oklab, var(--foreground) 14%, transparent);
+}
+
+.canvas-minimap-frame {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  padding: 0;
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--muted) 55%, transparent);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.canvas-minimap-frame:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.canvas-minimap-node {
+  position: absolute;
+  display: block;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--foreground) 18%, transparent);
+  pointer-events: none;
+}
+
+.canvas-minimap-viewport {
+  position: absolute;
+  display: block;
+  border: 1.5px solid var(--primary);
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--primary) 12%, transparent);
+  pointer-events: none;
+}
+
+.canvas-find {
+  position: absolute;
+  z-index: 29;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(340px, calc(100% - 28px));
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--card) 98%, transparent);
+  box-shadow: 0 16px 40px color-mix(in oklab, var(--foreground) 20%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.canvas-find-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.canvas-find-label {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.canvas-find-close {
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted-foreground);
+  font-size: 10px;
+}
+
+.canvas-find-close:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.canvas-find-input {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 13px;
+}
+
+.canvas-find-input:focus-visible {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 32%, transparent);
+}
+
+.canvas-find-count,
+.canvas-find-empty {
+  margin-top: 6px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+
+.canvas-find-results {
+  max-height: 216px;
+  margin-top: 6px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.canvas-find-results li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 7px;
+  color: var(--foreground);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.canvas-find-results li.is-active {
+  background: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--primary) 45%, transparent);
+}
+
+.canvas-find-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.canvas-find-kind {
+  flex: 0 0 auto;
+  color: var(--muted-foreground);
+  font-size: 10px;
+  text-transform: capitalize;
+}
+
+@container (max-width: 560px) {
+  /* The zoom/history clusters move to the top on narrow boards, so the minimap
+     can drop back down to the bottom edge. */
+  .canvas-minimap { bottom: 70px; }
+  .canvas-find { top: 56px; }
+}

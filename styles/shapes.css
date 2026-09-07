@@ -1,0 +1,47 @@
+/* Extended shape library. Geometry comes from src/shapes.ts; this file only
+   wires the computed values (--shape-clip, --shape-pad-*) into the DOM. */
+
+.diagram-node[data-shape] {
+  clip-path: var(--shape-clip, none);
+}
+
+/* Shapes rendered with an SVG outline have no clip-path and must not paint a
+   background themselves — the outline path carries the fill and the border. */
+.diagram-node[data-shape-outline="true"] {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  clip-path: none;
+}
+
+.diagram-shape-outline {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.diagram-shape-outline path {
+  fill: var(--diagram-node-bg, #fff);
+  stroke: var(--diagram-node-border, currentColor);
+  stroke-width: var(--diagram-node-border-width, 1.5);
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.diagram-node[data-shape] > textarea,
+.diagram-node[data-shape] > .diagram-node-text {
+  position: relative;
+  z-index: 1;
+  padding-top: var(--shape-pad-top, 6px);
+  padding-right: var(--shape-pad-right, 6px);
+  padding-bottom: var(--shape-pad-bottom, 6px);
+  padding-left: var(--shape-pad-left, 6px);
+}
+
+.shape-glyph {
+  display: block;
+  flex: none;
+}

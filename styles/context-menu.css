@@ -1,0 +1,103 @@
+/* Right-click menu for the canvas. Uses the same tokens as app.css so it
+   tracks light/dark themes without any per-theme overrides. */
+
+.canvas-context-menu {
+  position: fixed;
+  z-index: 70;
+  min-width: 232px;
+  max-width: 300px;
+  max-height: min(560px, calc(100vh - 16px));
+  padding: 5px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--popover, var(--card));
+  color: var(--popover-foreground, var(--foreground));
+  box-shadow: 0 16px 40px color-mix(in oklab, var(--foreground) 18%, transparent);
+  outline: 0;
+  scrollbar-width: thin;
+}
+
+.canvas-context-item {
+  width: 100%;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 9px;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: default;
+}
+
+.canvas-context-item:hover,
+.canvas-context-item:focus-visible,
+.canvas-context-item:focus {
+  background: var(--accent);
+  color: var(--accent-foreground, var(--foreground));
+  outline: 0;
+}
+
+.canvas-context-item[aria-disabled="true"] {
+  color: var(--muted-foreground);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.canvas-context-item[aria-disabled="true"]:hover,
+.canvas-context-item[aria-disabled="true"]:focus {
+  background: transparent;
+}
+
+.canvas-context-item[data-action="delete"]:hover,
+.canvas-context-item[data-action="delete"]:focus-visible {
+  background: color-mix(in oklab, var(--destructive, #b42318) 14%, transparent);
+  color: var(--destructive, #b42318);
+}
+
+.canvas-context-icon {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  display: grid;
+  place-items: center;
+  color: var(--muted-foreground);
+}
+
+.canvas-context-item:hover .canvas-context-icon,
+.canvas-context-item:focus-visible .canvas-context-icon,
+.canvas-context-item:focus .canvas-context-icon {
+  color: inherit;
+}
+
+.canvas-context-icon > svg {
+  width: 16px;
+  height: 16px;
+}
+
+.canvas-context-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.canvas-context-hint {
+  flex: 0 0 auto;
+  padding-left: 14px;
+  color: var(--muted-foreground);
+  font-family: inherit;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.canvas-context-separator {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
+}
