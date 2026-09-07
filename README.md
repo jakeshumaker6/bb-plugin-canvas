@@ -1,141 +1,169 @@
-# bb-plugin-canvas
+# Canvas
 
-A BB plugin that keeps a todo list. It shows every surface a plugin can own:
+Canvas is a visual diagramming workspace that lives as a tab inside the BB IDE.
+It is the FigJam-shaped tool you reach for when a workflow, a service map, or a
+migration plan is easier to draw than to describe — without leaving the editor
+you are already in.
 
-- `server.ts` — the backend: a todo store in `bb.storage.kv`, RPC methods
-  for the page, a `bb canvas` CLI command, a setting, and a realtime signal
-  that keeps every open page current.
-- `app.tsx` — the frontend: an **Example todos** page in the left sidebar
-  (`app.slots.navPanel`) built from the vendored components.
-- `skills/example-todos/SKILL.md` — a skill that tells agents how to keep the list
-  with `bb canvas`. BB imports it into agent threads automatically.
-- `PLUGIN_OVERVIEW.md` — the store listing text: a longer version of
-  `bb.description` that the plugin detail page shows under it. See
-  [Store listing](#store-listing).
+Alongside the board is a **Chat** tab: a board-scoped AI diagram partner. It
+edits the diagram through the same validated domain operations the UI uses, so
+anything the agent draws is something you could have drawn by hand, and
+anything it cannot express as an operation it cannot do.
 
-Try it: install the plugin, open **Example todos** in the sidebar, then run
-`bb canvas add "Ship it"` in a terminal. The page updates at once.
-
-## UI components
-
-`components/ui/` is vendored source you own (the shadcn model): edit the
-files freely — they never update out from under you. Add more from the BB
-component registry (the full shadcn set, version-matched to your BB install
-via the pinned ref in `components.json`):
-
-```
-npx shadcn add @bb/select @bb/table
-```
-
-Run `npm install` once before `bb plugin build` — the vendored components'
-npm deps bundle into your dist. React, and BB-shimmed packages like the
-radix portal primitives and `sonner` (`import { toast } from "sonner"`
-reaches BB's own toaster), are provided by the BB app at runtime and never
-bundled. Every shimmed package is declared in `devDependencies` at the
-host's version so those imports typecheck; keep them there (never in
-`dependencies`, which would bundle a second copy), and `bb plugin types`
-repins them alongside the SDK. Ship `dist/` (npm tarball or committed for
-git installs) so people installing your plugin never need npm.
-
-## Manifest
-
-`package.json` is the plugin manifest. Notable fields:
-
-- `bb.server` — backend entry (required).
-- `bb.app` — frontend entry. Delete it, `app.tsx`, `components/`,
-  `hooks/`, and `lib/` for a headless plugin.
-- `bb.skills` — skill roots; omitted here, so BB reads `skills/`. Each
-  directory with a `SKILL.md` is one skill, named after the directory.
-- `bb.name` and `bb.description` — required human-facing identity.
-- `bb.branding` — required; declare `icon` as a BB icon name or a
-  plugin-relative compact SVG, or declare `logo.light` (with optional
-  `logo.dark`). Logo assets must be relative `.svg`, `.png`, or
-  `.webp` files.
-- `engines.bb` — supported bb app version range.
-- `engines.bbPluginSdk` — the lowest plugin SDK you need (scaffold:
-  `>=0.4.47`). BB reads this as a floor, not a ceiling: a later
-  SDK in the same major still loads your plugin.
-- `dependencies` — every package your source imports that BB does not provide.
-  `bb plugin build` inlines them into `dist/`, and git installs resolve this
-  list alone, so a build-required package here rather than in
-  `devDependencies` is what keeps your plugin installable. `devDependencies`
-  is for types and tooling only (BB shims React, the portal primitives, and
-  `@get-bb/plugin-sdk` at runtime — never bundle them).
-
-Run `bb plugin build` before publishing git/npm installs. It writes
-`dist/server.js` + `server.meta.json` and `app.js` / `app.css` /
-`app.meta.json`. Each `*.meta.json` stamps SDK major/version,
-`artifactFormatVersion`, `pluginId`, `pluginVersion`, and
-`builtWith` so managed installs can verify the artifacts.
-
-## Store listing
-
-Two texts describe the plugin in the store. `bb.description` in package.json
-is the one-sentence hook on every browse card and the lead paragraph on the
-detail page; keep it under about 140 characters. `PLUGIN_OVERVIEW.md` is the
-same claim at length, shown in an Overview section under that paragraph.
-Rewrite the scaffold's copy for your plugin, and update it whenever
-`bb.description` changes, so the two never disagree.
-
-The submission to the public BB Community marketplace requires the file. Keep
-it under 4000 characters (aim for 700 to 1800) and use headings, paragraphs,
-emphasis, code, blockquotes, lists, thematic breaks, and absolute https links
-only — raw HTML, images, tables, footnotes, and task lists are rejected. Do
-not open with a `#` title or repeat `bb.description` verbatim; the page
-shows both directly above.
+Boards are stored locally by the plugin. There is no account, no external
+service, and nothing leaves the machine.
 
 ## Install
 
-From this directory (`bb plugin new` already ran the install; a fresh clone
-needs it):
+```
+bb plugin install git:https://github.com/jakeshumaker6/bb-plugin-canvas
+```
+
+Requires BB `>=0.42` (`engines.bb`) and plugin SDK `>=0.4.47`.
+
+Open **Canvas** in the left sidebar. The board list is on the left, the board
+fills the middle, and the **Chat** tab sits beside it.
+
+## Features
+
+**Objects.** Sticky notes, rectangles, ellipses, diamonds, free text, and
+images. Every object carries its own fill colour (seven presets plus a custom
+colour picker), font family (Inter, serif, mono), font size, weight, and text
+alignment. Objects can be locked in place and grouped.
+
+**Selection.** Click to select, shift-click to extend, drag on empty canvas for
+a marquee. Touching one member of a group selects the whole group. Locked
+objects are skipped by marquee, select-all, and every destructive action.
+
+**Snapping and alignment.** Dragging snaps edges and centres to nearby objects
+within a zoom-aware tolerance, and draws the guide that justifies the snap. Six
+alignment edges (left / horizontal centre / right, top / vertical centre /
+bottom), distribute horizontally or vertically (needs three or more objects),
+and a FigJam-style **Tidy up** that lays the selection out in a uniform grid
+anchored at its existing top-left.
+
+**Layering.** Board order is z-order. Bring to front, bring forward, send
+backward, send to back — for one object or a whole selection.
+
+**Connectors.** Pick the connector tool, click a source object, click a target.
+Connectors anchor to the nearest sensible side of each box and re-route as the
+boxes move. Three routings (straight, elbow, curved), three arrow modes (one
+way, two way, none), and an optional label.
+
+**Comments.** Private per-object notes with resolve / reopen / delete, shown as
+a badge on the object.
+
+**Navigation.** Pan by scroll or with the hand tool, zoom from 20% to 250%,
+zoom-to-fit, a live minimap you can click to jump, and a find box that ranks
+matches over object text and kind.
+
+**Clipboard.** Cut, copy, paste, and duplicate. Copied objects carry the
+connectors that are entirely inside the selection; pasting rebuilds everything
+with fresh ids, so a paste never collides with its source and works across
+boards. Pasting or dropping an image file places it as an image object.
+
+**Undo/redo.** A local history of up to 40 steps. A multi-object gesture is one
+undo step.
+
+**Boards.** Create, rename, delete, and switch boards from the library rail.
+
+**Import/export.** Export a board as editable Canvas JSON, as SVG, or as PNG.
+Import Canvas JSON (a full round-trip of an exported board), SVG, or a
+PNG/JPEG image.
+
+## Keyboard
+
+Every binding below is read from the keydown handler in `app.tsx`. Shortcuts are
+ignored while the focus is in a text field, a textarea, or an editable object.
+
+| Keys | Action |
+| --- | --- |
+| `V` | Select tool |
+| `H` | Hand tool (pan) |
+| `S` | Sticky note tool |
+| `R` | Rectangle tool |
+| `O` | Ellipse tool |
+| `D` | Diamond tool |
+| `T` | Text tool |
+| `L` | Connector tool |
+| `C` | Comment tool |
+| `Enter` | Edit the text of the one selected object |
+| `Escape` | Clear selection and editing, close menus, return to the select tool |
+| `Backspace` / `Delete` | Delete the selected objects, or the selected connector |
+| `Arrow keys` | Nudge the selection by 1 px |
+| `Shift`+`Arrow keys` | Nudge the selection by 10 px |
+| `Shift`+`1` | Zoom to fit |
+| `Cmd/Ctrl`+`A` | Select every unlocked object |
+| `Cmd/Ctrl`+`F` | Open find |
+| `Cmd/Ctrl`+`D` | Duplicate the selection |
+| `Cmd/Ctrl`+`G` | Group the selection |
+| `Cmd/Ctrl`+`Shift`+`G` | Ungroup the selection |
+| `Cmd/Ctrl`+`Shift`+`L` | Lock the selection, or unlock it if all of it is locked |
+| `Cmd/Ctrl`+`Shift`+`T` | Tidy up the selection |
+| `Cmd/Ctrl`+`]` | Bring forward |
+| `Cmd/Ctrl`+`Shift`+`]` | Bring to front |
+| `Cmd/Ctrl`+`[` | Send backward |
+| `Cmd/Ctrl`+`Shift`+`[` | Send to back |
+| `Cmd/Ctrl`+`Z` | Undo |
+| `Cmd/Ctrl`+`Shift`+`Z` | Redo |
+| `Cmd/Ctrl`+`X` / `C` / `V` | Cut / copy / paste (handled as native clipboard events) |
+
+Holding `Shift` while dragging an object constrains the drag to one axis.
+
+## Pointer model
+
+- **Click** an object to select it and begin a drag. **Shift**-click adds to or
+  removes from the selection.
+- **Drag on empty canvas** with the select tool draws a marquee; anything the
+  marquee touches is selected.
+- **Double-click** an object — or press `Enter` with a single object selected —
+  to edit its text. `Escape` or clicking away commits the edit.
+- **Drag the handle** on a single selected object to resize it.
+- **Right-click** anywhere for a context menu whose items depend on what is
+  selected, whether it is locked or grouped, and whether the clipboard holds
+  something Canvas can paste.
+- **Scroll** pans the board. **Cmd/Ctrl**+**scroll** zooms toward the pointer,
+  clamped to 20%–250%.
+- **Drop an image file** onto the canvas to place it where you dropped it.
+
+## Limitations
+
+These are design boundaries, not a roadmap.
+
+- **Single-player.** One person, one machine. There are no cursors, no
+  presence, no sharing link, and no conflict resolution. Realtime updates keep
+  the open tabs of a single install in step; they are not multiplayer.
+- **Local storage.** Boards live in the plugin's own SQLite database on your
+  machine. Moving a board to another machine means exporting it and importing
+  it there.
+- **No Figma sync.** Canvas does not connect to a Figma account and there is no
+  live link between a Canvas board and a Figma or FigJam file.
+- **No .fig or .jam import.** Those are Figma's proprietary formats and Canvas
+  cannot open them. To bring work across, export from Figma Design as SVG, or
+  from FigJam as PNG or PDF, and import that.
+
+## Development
 
 ```
+git clone https://github.com/jakeshumaker6/bb-plugin-canvas
+cd bb-plugin-canvas
 npm install
-bb plugin install .
+bb plugin install . --yes
+bb plugin dev          # rebuild and reload on save
 ```
 
-After editing sources, reload:
+Checks:
 
 ```
-bb plugin reload canvas
+npm test -- --run      # vitest
+npm run typecheck      # tsc
+npm run build          # bb plugin build
 ```
 
-Or let `bb plugin dev` rebuild and reload on every save.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the module layout and the
+test-first rule, and [docs/](docs/) for the architecture, user flows, and
+product brief.
 
-## Configure
+## License
 
-```
-bb plugin config canvas
-bb plugin config canvas set showDone false
-bb plugin reload canvas
-```
-
-## Types & API reference
-
-The plugin API ships as the npm package `@get-bb/plugin-sdk`, pinned to an
-exact version in `devDependencies` (`0.4.47` — the SDK of the BB
-that scaffolded this plugin). After `npm install`, the full surface is on disk
-at:
-
-```
-node_modules/@get-bb/plugin-sdk/bundled-types/bb-plugin-sdk.d.ts      # backend
-node_modules/@get-bb/plugin-sdk/bundled-types/bb-plugin-sdk-app.d.ts  # frontend
-```
-
-Your editor and `tsc` resolve `@get-bb/plugin-sdk` there through ordinary node
-resolution — no path mapping. These are readable declarations: open them for an
-exact signature.
-
-The SDK surface grows with every BB release, so the pin has to track the BB you
-actually run:
-
-```
-bb plugin types          # sync this plugin's SDK surface to the running BB
-bb plugin types --check  # CI: fail when it does not match
-```
-
-Ask BB to write plugins for you: the `bb-plugin-authoring` skill documents
-the whole surface with examples.
-
-Confused by the API, or need something the types don't explain? Clone the BB
-repo and read the source: <https://github.com/get-bb/bb>.
+MIT — see [LICENSE](LICENSE).

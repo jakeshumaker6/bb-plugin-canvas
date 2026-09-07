@@ -142,7 +142,7 @@ describe("tidyUpOperations", () => {
     node({ id: "n2", x: 200, y: 5, width: 120, height: 60 }),
     node({ id: "n3", x: 400, y: 10, width: 80, height: 40 }),
     node({ id: "n4", x: 0, y: 300, width: 140, height: 70 }),
-    node({ id: "n5", x: 250, y: 310, width: 90, height: 30 }),
+    node({ id: "n5", x: 250, y: 310, width: 90, height: 32 }),
   ];
 
   it("snaps five nodes into a 3-column grid anchored at the selection top-left", () => {

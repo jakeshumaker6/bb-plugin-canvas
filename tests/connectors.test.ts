@@ -131,14 +131,18 @@ describe("connectorLabelPoint", () => {
 
   it("sits on the middle segment of an elbow, not on the straight-line midpoint", () => {
     const source = node("a", 0, 0);
-    const target = node("b", 500, 300);
+    const target = node("b", 500, 300, 300, 200);
     const point = connectorLabelPoint(source, target, "elbow");
     const points = parsePoints(connectorPath(source, target, "elbow"));
     const [, second, third] = points as [Point, Point, Point, Point];
     expect(point.x).toBe(second.x);
     expect(point.x).toBe(third.x);
     expect(point.y).toBe((second.y + third.y) / 2);
-    expect(point).not.toEqual({ x: 350, y: 200 });
+    expect(point.y).toBeGreaterThan(Math.min(second.y, third.y));
+    expect(point.y).toBeLessThan(Math.max(second.y, third.y));
+    // Not the centre-to-centre midpoint: the label tracks the routed path, not the raw line.
+    expect(point).not.toEqual({ x: 375, y: 225 });
+    expect(point).toEqual({ x: 350, y: 225 });
   });
 
   it("returns the bezier midpoint for a curved connector and stays finite when nodes overlap", () => {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import type { BoardNode } from "../src/domain";
 import { CanvasFind } from "../components/canvas-find";
 import { CanvasMinimap } from "../components/canvas-minimap";
@@ -158,6 +158,7 @@ describe("CanvasFind", () => {
   ];
 
   function open(onFocus = vi.fn(), onClose = vi.fn()) {
+    cleanup();
     render(<CanvasFind nodes={nodes} onFocus={onFocus} onClose={onClose} />);
     const input = screen.getByLabelText("Find on board");
     return { input, onFocus, onClose };

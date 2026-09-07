@@ -105,8 +105,6 @@ describe("menuItemsFor", () => {
           for (const grouped of [false, true]) {
             for (const canPaste of [false, true]) {
               const items = menuItemsFor({ target, selectionCount, locked, grouped, canPaste });
-              const shape = ids({ ...items } as unknown as MenuItem[] & object) as unknown;
-              void shape;
               expect(items.length).toBeGreaterThan(0);
               expect(isSeparator(items[0]!)).toBe(false);
               expect(isSeparator(items.at(-1)!)).toBe(false);
@@ -131,6 +129,7 @@ describe("menuItemsFor", () => {
 const menuItems = menuItemsFor({ ...base, target: "canvas", selectionCount: 0 });
 
 function renderMenu(overrides: Partial<Parameters<typeof CanvasContextMenu>[0]> = {}) {
+  cleanup();
   const onSelect = vi.fn();
   const onClose = vi.fn();
   const view = render(

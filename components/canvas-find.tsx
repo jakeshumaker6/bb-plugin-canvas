@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import type { KeyboardEvent as ReactKeyboardEvent } from "react";
+import type { JSX, KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { BoardNode } from "../src/domain";
 import { matchNodes } from "../src/navigation";
 
@@ -58,7 +58,7 @@ export function CanvasFind({
   };
 
   return (
-    <div className="canvas-find" role="dialog" aria-label="Find on board" onKeyDown={onKeyDown}>
+    <div className="canvas-find" role="dialog" aria-label="Find objects" onKeyDown={onKeyDown}>
       <div className="canvas-find-head">
         <label className="canvas-find-label" htmlFor={`${baseId}-input`}>Find on board</label>
         <button type="button" className="canvas-find-close" onClick={onClose} aria-label="Close find">Esc</button>

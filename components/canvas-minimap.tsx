@@ -1,4 +1,4 @@
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { JSX, PointerEvent as ReactPointerEvent } from "react";
 import type { BoardNode } from "../src/domain";
 import {
   MINIMAP_FRAME,
