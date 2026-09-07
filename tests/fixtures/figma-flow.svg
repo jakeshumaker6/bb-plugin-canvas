@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="880" height="420" viewBox="0 0 880 420" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="Flow" transform="translate(40 30)">
+<g id="Intake" transform="translate(0 60)">
+<rect width="180" height="160" rx="8" fill="#FDE68A"/>
+<text fill="#0F172A" xml:space="preserve" style="white-space: pre" font-family="Inter" font-size="16" font-weight="600" text-anchor="middle"><tspan x="90" y="85">Intake form</tspan></text>
+</g>
+<g id="Decide" transform="translate(320 20)">
+<polygon points="90,0 180,90 90,180 0,90" fill="#93C5FD"/>
+<text fill="#0F172A" font-family="Inter" font-size="14" font-weight="500" text-anchor="middle"><tspan x="90" y="95">Valid?</tspan></text>
+</g>
+<g id="Store" transform="translate(600 20)">
+<ellipse cx="90" cy="55" rx="90" ry="55" fill="#86EFAC"/>
+<text fill="#0F172A" font-family="Inter" font-size="14" font-weight="500" text-anchor="middle"><tspan x="90" y="60">Save</tspan></text>
+</g>
+<path d="M180 140L320 110" stroke="#94A3B8" stroke-width="2" marker-end="url(#arrow)"/>
+<g id="Connector 2">
+<path d="M500 110L550 110L550 75L600 75" stroke="#94A3B8" stroke-width="2"/>
+<path d="M600 75L590 70L590 80Z" fill="#94A3B8"/>
+<text fill="#0F172A" font-family="Inter" font-size="12" text-anchor="middle"><tspan x="550" y="92">yes</tspan></text>
+</g>
+<g id="Note" transform="translate(0 280)">
+<text fill="#0F172A" font-family="Inter" font-size="21" font-weight="700"><tspan x="0" y="16">Draft — reviewed 3 Sep</tspan></text>
+</g>
+<g id="Legend" transform="translate(700 280)">
+<rect width="60" height="40" fill="url(#paint0_linear)"/>
+</g>
+</g>
+<defs>
+<clipPath id="clip0"><rect width="880" height="420" fill="white"/></clipPath>
+<linearGradient id="paint0_linear" x1="0" y1="0" x2="60" y2="40"><stop stop-color="#C4B5FD"/><stop offset="1" stop-color="#FFFFFF"/></linearGradient>
+</defs>
+</svg>

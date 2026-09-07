@@ -8,6 +8,7 @@ import {
 } from "./domain";
 import { connectorLabelPoint, connectorPath } from "./connectors";
 import { shapePath } from "./shapes";
+import { importSvgObjects, type ImportedEdge, type ImportedNode } from "./svg-import";
 
 /** Imported files are untrusted: cap the text before anything parses it. */
 const MAX_IMPORT_CHARS = 5_000_000;
@@ -53,6 +54,7 @@ export type ImportedReferenceNode = {
 
 export type BoardImport =
   | { kind: "native"; board: BoardDocument }
+  | { kind: "objects"; nodes: ImportedNode[]; edges: ImportedEdge[]; warnings: string[] }
   | { kind: "reference"; node: ImportedReferenceNode };
 
 function colorValue(id: string): string {
@@ -308,7 +310,12 @@ export function parseBoardImport(input: { fileName: string; content: string }): 
       return { kind: "native", board: parseNativeJson(content, fileName) };
     case "svg": {
       const encoded = metadataFrom(content);
-      if (encoded === null) return reference(`data:image/svg+xml;base64,${encodeBase64(content)}`);
+      if (encoded === null) {
+        // A foreign SVG becomes real objects when anything maps; artwork still lands as a picture.
+        const objects = importSvgObjects(content);
+        if (objects.nodes.length > 0) return { kind: "objects", ...objects };
+        return reference(`data:image/svg+xml;base64,${encodeBase64(content)}`);
+      }
       let decoded: string;
       try {
         decoded = decodeBase64(encoded);

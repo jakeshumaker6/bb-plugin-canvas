@@ -1,5 +1,8 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import type { BoardNode } from "../src/domain";
 import { CanvasFind } from "../components/canvas-find";
@@ -202,5 +205,83 @@ describe("CanvasFind", () => {
     const { input, onClose } = open();
     fireEvent.keyDown(input, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+const navCss = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../styles/navigation.css"), "utf8");
+
+/** Body of the first rule for `selector`, so a test can read declared values. */
+function ruleBody(css: string, selector: string): string {
+  const start = css.indexOf(`${selector} {`);
+  expect(start).toBeGreaterThanOrEqual(0);
+  return css.slice(start, css.indexOf("}", start));
+}
+
+function pxValue(block: string, property: string): number {
+  const match = new RegExp(`${property}:\\s*([\\d.]+)px`).exec(block);
+  return match === null ? 0 : Number(match[1]);
+}
+
+describe("CanvasFind focus management", () => {
+  const findNodes = [node({ id: "pay", text: "Payment gateway" })];
+
+  afterEach(() => {
+    for (const stray of Array.from(document.querySelectorAll("body > button, body > textarea"))) stray.remove();
+  });
+
+  function opener(): HTMLButtonElement {
+    const button = document.createElement("button");
+    button.textContent = "Find";
+    document.body.append(button);
+    button.focus();
+    return button;
+  }
+
+  function openFind() {
+    return render(<CanvasFind nodes={findNodes} onFocus={vi.fn()} onClose={vi.fn()} />);
+  }
+
+  it("restores focus to the control that opened it when it closes", () => {
+    const trigger = opener();
+    const view = openFind();
+    expect(document.activeElement).toBe(screen.getByLabelText("Find on board"));
+    view.unmount();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("leaves focus alone when closing already handed it to the board", () => {
+    opener();
+    const elsewhere = document.createElement("textarea");
+    document.body.append(elsewhere);
+    const view = openFind();
+    elsewhere.focus();
+    view.unmount();
+    expect(document.activeElement).toBe(elsewhere);
+  });
+
+  it("declares itself a modal dialog", () => {
+    openFind();
+    expect(screen.getByRole("dialog", { name: "Find objects" }).getAttribute("aria-modal")).toBe("true");
+  });
+
+  it("keeps Tab inside the palette, in both directions", () => {
+    const trigger = opener();
+    openFind();
+    const input = screen.getByLabelText("Find on board");
+    const close = screen.getByRole("button", { name: "Close find" });
+
+    fireEvent.keyDown(input, { key: "Tab" });
+    expect(document.activeElement).toBe(close);
+    fireEvent.keyDown(close, { key: "Tab" });
+    expect(document.activeElement).toBe(input);
+    fireEvent.keyDown(input, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(close);
+    expect(document.activeElement).not.toBe(trigger);
+  });
+
+  it("gives Close find a 24px minimum touch target", () => {
+    const block = ruleBody(navCss, ".canvas-find-close");
+    expect(pxValue(block, "min-height")).toBeGreaterThanOrEqual(24);
+    expect(pxValue(block, "min-width")).toBeGreaterThanOrEqual(24);
   });
 });

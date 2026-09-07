@@ -101,7 +101,8 @@ describe("Canvas bb surface", () => {
     const view = await openBoard({ ...rpcFor(board), board_apply_operations: () => ({ board: boardWithSticky }) });
     expect(view.getByRole("button", { name: "Undo" }).hasAttribute("disabled")).toBe(true);
 
-    fireEvent.click(view.getByRole("button", { name: "Sticky note" }));
+    // detail 1 is a real mouse click: it arms the tool and waits for the canvas click.
+    fireEvent.click(view.getByRole("button", { name: "Sticky note" }), { detail: 1 });
     fireEvent.pointerDown(view.getByTestId("canvas-surface"), { button: 0, clientX: 300, clientY: 200 });
 
     await waitFor(() => expect(lastApply(view.rpcCalls)).toHaveLength(1));
@@ -109,7 +110,14 @@ describe("Canvas bb surface", () => {
     expect(lastApply(view.rpcCalls)).toEqual([
       { type: "add_node", node: { id: expect.any(String), kind: "sticky", x: 110, y: 56, color: "yellow" } },
     ]);
-    await waitFor(() => expect(view.getByLabelText("Text for sticky")).toBeTruthy());
+    // Every object names itself distinctly; there is no shared "Text for sticky" label any more.
+    const created = await waitFor(() => {
+      const found = view.container.querySelector('[role="option"][aria-roledescription="sticky note"]');
+      expect(found).not.toBeNull();
+      return found!;
+    });
+    expect(created.getAttribute("aria-label")).toBe("Customer request");
+    expect(created.querySelector("textarea")!.getAttribute("aria-label")).toBe("Edit sticky note text: Customer request");
 
     const undo = view.getByRole("button", { name: "Undo" });
     expect(undo.hasAttribute("disabled")).toBe(false);
@@ -283,7 +291,7 @@ describe("Canvas bb surface", () => {
     const dock = view.getByRole("toolbar", { name: "Canvas tools" });
     fireEvent.click(within(dock).getByRole("button", { name: "Shapes" }));
     const picker = view.getByRole("toolbar", { name: "Shape choices" });
-    fireEvent.click(within(picker).getByRole("button", { name: SHAPE_LABELS.cylinder }));
+    fireEvent.click(within(picker).getByRole("button", { name: SHAPE_LABELS.cylinder }), { detail: 1 });
     fireEvent.pointerDown(view.getByTestId("canvas-surface"), { clientX: 320, clientY: 240, button: 0 });
     await waitFor(() => {
       const call = view.inspection.rpcCalls.find((item) => item.method === "board_apply_operations");
@@ -324,7 +332,7 @@ describe("Canvas bb surface", () => {
   it("drops a comment pin where you click on empty canvas", async () => {
     const view = await openBoard(rpcFor());
     const dock = view.getByRole("toolbar", { name: "Canvas tools" });
-    fireEvent.click(within(dock).getByRole("button", { name: "Comment" }));
+    fireEvent.click(within(dock).getByRole("button", { name: "Comment" }), { detail: 1 });
     fireEvent.pointerDown(view.getByTestId("canvas-surface"), { clientX: 320, clientY: 240, button: 0 });
     await waitFor(() => {
       const call = view.inspection.rpcCalls.find((item) => item.method === "board_apply_operations");
@@ -359,6 +367,41 @@ describe("Canvas bb surface", () => {
       const call = [...view.inspection.rpcCalls].reverse().find((item) => item.method === "board_apply_operations");
       expect((call?.input as { operations: Array<{ type: string }> }).operations[0]?.type).toBe("resolve_comment");
     });
+    view.lifecycle.unmount();
+  });
+
+  it("lets a focused control keep its own keys instead of the board stealing them", async () => {
+    const view = await openBoard(rpcFor(boardWithSticky));
+    const sticky = view.container.querySelector(".diagram-node") as HTMLElement;
+    fireEvent.pointerDown(sticky, { clientX: 150, clientY: 130, button: 0 });
+    fireEvent.pointerUp(window, { clientX: 150, clientY: 130 });
+
+    const dock = view.getByRole("toolbar", { name: "Canvas tools" });
+    const stickyTool = within(dock).getByRole("button", { name: "Sticky note" });
+    stickyTool.focus();
+    // Enter on a focused button must activate that button, not open the selected node's editor.
+    fireEvent.keyDown(stickyTool, { key: "Enter" });
+    expect(view.container.querySelector(".diagram-node.is-editing")).toBeNull();
+
+    // Backspace while a control has focus must not delete the board selection.
+    const before = view.inspection.rpcCalls.filter((call) => call.method === "board_apply_operations").length;
+    fireEvent.keyDown(stickyTool, { key: "Backspace" });
+    expect(view.inspection.rpcCalls.filter((call) => call.method === "board_apply_operations")).toHaveLength(before);
+
+    // A plain letter on a focused control must not rearm a tool.
+    const shapes = within(dock).getByRole("button", { name: "Shapes" });
+    fireEvent.keyDown(stickyTool, { key: "d" });
+    expect(shapes.className).not.toContain("is-active");
+    view.lifecycle.unmount();
+  });
+
+  it("pans the minimap with the arrow keys", async () => {
+    const view = await openBoard(rpcFor(boardWithSticky));
+    const minimap = await view.findByRole("button", { name: /Board minimap/ });
+    const world = view.container.querySelector(".canvas-world") as HTMLElement;
+    const before = world.style.transform;
+    fireEvent.keyDown(minimap, { key: "ArrowRight" });
+    await waitFor(() => expect((view.container.querySelector(".canvas-world") as HTMLElement).style.transform).not.toBe(before));
     view.lifecycle.unmount();
   });
 

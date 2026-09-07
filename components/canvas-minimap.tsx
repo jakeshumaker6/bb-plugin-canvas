@@ -63,10 +63,18 @@ export function CanvasMinimap({
   return (
     <div className="canvas-minimap" data-testid="canvas-minimap">
       <button
+      onKeyDown={(event) => {
+        const step = event.shiftKey ? 120 : 40;
+        const pan = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[event.key];
+        if (pan === undefined) return;
+        event.preventDefault();
+        onNavigate({ ...viewport, x: viewport.x - pan[0], y: viewport.y - pan[1] });
+      }}
+
         type="button"
         className="canvas-minimap-frame"
         data-testid="minimap-frame"
-        aria-label="Board minimap: click or drag to move the view"
+        aria-label="Board minimap: click or drag to move the view, or pan with the arrow keys"
         style={{ width: MINIMAP_FRAME.width, height: MINIMAP_FRAME.height }}
         onPointerDown={(event) => {
           if (event.button !== 0) return;

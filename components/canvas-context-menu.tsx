@@ -156,6 +156,17 @@ export function CanvasContextMenu({
     });
   }, [items, position.x, position.y]);
 
+  // Captured before the item-focus effect below moves focus into the menu.
+  useEffect(() => {
+    const opener = document.activeElement;
+    return () => {
+      // An action may have moved focus onto the board already; that wins.
+      const active = document.activeElement;
+      const ours = active === null || active === document.body || menuRef.current?.contains(active) === true;
+      if (ours && opener instanceof HTMLElement && opener !== document.body && opener.isConnected) opener.focus();
+    };
+  }, []);
+
   // Also runs on mount, which is what puts focus on the first enabled item.
   useEffect(() => {
     if (activeIndex < 0) {
@@ -213,6 +224,8 @@ export function CanvasContextMenu({
       return;
     }
     if (event.key === "Tab") {
+      // A menu is not a modal: Tab dismisses it, but focus goes back to the
+      // opener rather than being abandoned on the body (the unmount effect).
       event.preventDefault();
       close();
     }
@@ -243,6 +256,8 @@ export function CanvasContextMenu({
             type="button"
             role="menuitem"
             className="canvas-context-item"
+            disabled={disabled}
+            // Kept alongside `disabled` so the state is still announced in the menu.
             aria-disabled={disabled}
             data-action={item.id}
             tabIndex={index === activeIndex ? 0 : -1}

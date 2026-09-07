@@ -305,6 +305,50 @@ export default async function plugin(bb: BbPluginApi) {
           ]),
         };
       }
+      // A foreign SVG becomes real objects, added beside what is already there
+      // through the same validated operation path as every other edit.
+      if (parsed.kind === "objects") {
+        const board = requireBoard(boardId);
+        const right = board.nodes.reduce((edge, node) => Math.max(edge, node.x + node.width), 0);
+        const shift = board.nodes.length === 0 ? 0 : right + 80;
+        const ids = new Map(parsed.nodes.map((node) => [node.id, makeId()]));
+        const operations: BoardOperation[] = [
+          ...parsed.nodes.map((node) => ({
+            type: "add_node" as const,
+            node: {
+              id: ids.get(node.id)!,
+              kind: node.kind,
+              x: node.x + shift,
+              y: node.y,
+              width: node.width,
+              height: node.height,
+              text: node.text,
+              color: node.color,
+              fontFamily: node.fontFamily,
+              fontSize: node.fontSize,
+              fontWeight: node.fontWeight,
+              textAlign: node.textAlign,
+              ...(node.imageData === undefined ? {} : { imageData: node.imageData }),
+            },
+          })),
+          ...parsed.edges
+            .filter((edge) => ids.has(edge.source) && ids.has(edge.target))
+            .map((edge) => ({
+              type: "add_edge" as const,
+              edge: {
+                id: makeId(),
+                source: ids.get(edge.source)!,
+                target: ids.get(edge.target)!,
+                label: edge.label,
+                color: edge.color,
+                routing: edge.routing,
+                arrow: edge.arrow,
+              },
+            })),
+        ];
+        for (const warning of parsed.warnings) bb.log.info(`svg import: ${warning}`);
+        return { board: applyOperations(boardId, operations) };
+      }
       const imported = parsed.board;
       return {
         board: commit(boardId, (current) =>

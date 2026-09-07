@@ -33,7 +33,7 @@
   cursor: default;
 }
 
-.canvas-context-item:hover,
+.canvas-context-item:hover:not(:disabled),
 .canvas-context-item:focus-visible,
 .canvas-context-item:focus {
   background: var(--accent);
@@ -41,18 +41,13 @@
   outline: 0;
 }
 
-.canvas-context-item[aria-disabled="true"] {
+.canvas-context-item:disabled {
   color: var(--muted-foreground);
   opacity: 0.55;
-  pointer-events: none;
-}
-
-.canvas-context-item[aria-disabled="true"]:hover,
-.canvas-context-item[aria-disabled="true"]:focus {
   background: transparent;
 }
 
-.canvas-context-item[data-action="delete"]:hover,
+.canvas-context-item[data-action="delete"]:hover:not(:disabled),
 .canvas-context-item[data-action="delete"]:focus-visible {
   background: color-mix(in oklab, var(--destructive, #b42318) 14%, transparent);
   color: var(--destructive, #b42318);
@@ -67,7 +62,7 @@
   color: var(--muted-foreground);
 }
 
-.canvas-context-item:hover .canvas-context-icon,
+.canvas-context-item:hover:not(:disabled) .canvas-context-icon,
 .canvas-context-item:focus-visible .canvas-context-icon,
 .canvas-context-item:focus .canvas-context-icon {
   color: inherit;

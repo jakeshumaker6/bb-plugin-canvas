@@ -1,4 +1,7 @@
 // @vitest-environment jsdom
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { CanvasContextMenu } from "../components/canvas-context-menu";
@@ -246,5 +249,71 @@ describe("CanvasContextMenu", () => {
     fireEvent.scroll(window);
     fireEvent.resize(window);
     expect(view.onClose).not.toHaveBeenCalled();
+  });
+});
+
+const menuCss = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../styles/context-menu.css"), "utf8");
+
+describe("CanvasContextMenu focus management", () => {
+  afterEach(() => {
+    for (const stray of Array.from(document.querySelectorAll("body > button, body > textarea"))) stray.remove();
+  });
+
+  function opener(): HTMLButtonElement {
+    const button = document.createElement("button");
+    button.textContent = "Board";
+    document.body.append(button);
+    button.focus();
+    return button;
+  }
+
+  it("restores focus to the control that opened it when Escape closes it", () => {
+    const trigger = opener();
+    const view = renderMenu();
+    expect(view.menu.contains(document.activeElement)).toBe(true);
+    fireEvent.keyDown(view.menu, { key: "Escape" });
+    expect(view.onClose).toHaveBeenCalledTimes(1);
+    view.unmount();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("closes on Tab and hands focus back rather than dropping it on the body", () => {
+    const trigger = opener();
+    const view = renderMenu();
+    fireEvent.keyDown(view.menu, { key: "Tab" });
+    expect(view.onClose).toHaveBeenCalledTimes(1);
+    view.unmount();
+    expect(document.activeElement).toBe(trigger);
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
+  it("does not pull focus back when the chosen action already moved it", () => {
+    opener();
+    const elsewhere = document.createElement("textarea");
+    document.body.append(elsewhere);
+    const view = renderMenu();
+    elsewhere.focus();
+    view.unmount();
+    expect(document.activeElement).toBe(elsewhere);
+  });
+
+  it("makes disabled items genuinely inert, not just aria-disabled", () => {
+    const view = renderMenu();
+    const paste = view.getByRole("menuitem", { name: /Paste here/ });
+    expect(paste.hasAttribute("disabled")).toBe(true);
+    expect(paste.getAttribute("aria-disabled")).toBe("true");
+    expect(paste.tabIndex).toBe(-1);
+    // jsdom will focus a disabled button, so prove inertness the way a browser
+    // decides it: the element is out of the sequential focus order entirely.
+    expect(paste.matches('button:not([disabled])')).toBe(false);
+    expect(paste.matches(":disabled")).toBe(true);
+    fireEvent.click(paste);
+    expect(view.onSelect).not.toHaveBeenCalled();
+    expect(view.onClose).not.toHaveBeenCalled();
+  });
+
+  it("styles disabled items through :disabled instead of pointer-events: none", () => {
+    expect(menuCss).toMatch(/\.canvas-context-item:disabled/);
+    expect(menuCss).not.toContain("pointer-events: none");
   });
 });
