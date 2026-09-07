@@ -77,23 +77,17 @@ export const rpcContract = defineRpcContract({
 /** Append-only. Never reorder or edit a shipped statement. */
 const MIGRATIONS = [
   `CREATE TABLE IF NOT EXISTS boards (
-     id TEXT PRIMARY KEY,
-     title TEXT NOT NULL,
-     project_id TEXT,
-     chat_thread_id TEXT,
-     version INTEGER NOT NULL,
-     created_at TEXT NOT NULL,
-     updated_at TEXT NOT NULL,
-     document TEXT NOT NULL
-   )`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS boards_chat_thread_id
-     ON boards (chat_thread_id) WHERE chat_thread_id IS NOT NULL`,
-  `CREATE INDEX IF NOT EXISTS boards_created_at ON boards (created_at, id)`,
+      id TEXT PRIMARY KEY,
+      document_json TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+  `CREATE INDEX IF NOT EXISTS boards_updated_idx ON boards(updated_at DESC)`,
 ];
 
 interface BoardRow {
   id: string;
-  document: string;
+  document_json: string;
 }
 
 const APPLY_OPERATIONS_DESCRIPTION = [
@@ -136,40 +130,33 @@ export default async function plugin(bb: BbPluginApi) {
   // ---------------------------------------------------------------- storage
 
   const selectAll = db.prepare<[], BoardRow>(
-    "SELECT id, document FROM boards ORDER BY created_at ASC, id ASC",
+    "SELECT id, document_json FROM boards ORDER BY created_at ASC, id ASC",
   );
   const selectOne = db.prepare<[string], BoardRow>(
-    "SELECT id, document FROM boards WHERE id = ?",
+    "SELECT id, document_json FROM boards WHERE id = ?",
   );
-  const selectByThread = db.prepare<[string], BoardRow>(
-    "SELECT id, document FROM boards WHERE chat_thread_id = ?",
-  );
+  // The board carries its own chat thread id inside the document, so a thread lookup
+  // reads the snapshot rather than a denormalised column.
+  const selectAllForThread = db.prepare<[], BoardRow>("SELECT id, document_json FROM boards");
   const insertBoard = db.prepare(
-    `INSERT INTO boards (id, title, project_id, chat_thread_id, version, created_at, updated_at, document)
-     VALUES (@id, @title, @projectId, @chatThreadId, @version, @createdAt, @updatedAt, @document)`,
+    `INSERT INTO boards (id, document_json, created_at, updated_at)
+     VALUES (@id, @document_json, @createdAt, @updatedAt)`,
   );
   const updateBoard = db.prepare(
-    `UPDATE boards
-        SET title = @title, project_id = @projectId, chat_thread_id = @chatThreadId,
-            version = @version, updated_at = @updatedAt, document = @document
-      WHERE id = @id`,
+    `UPDATE boards SET document_json = @document_json, updated_at = @updatedAt WHERE id = @id`,
   );
   const deleteBoard = db.prepare<[string]>("DELETE FROM boards WHERE id = ?");
 
   /** The snapshot is re-parsed on read, so a schema change never leaks a stale shape. */
   function decode(row: BoardRow): BoardDocument {
-    return boardDocumentSchema.parse(JSON.parse(row.document));
+    return boardDocumentSchema.parse(JSON.parse(row.document_json));
   }
   function encode(board: BoardDocument) {
     return {
       id: board.id,
-      title: board.title,
-      projectId: board.projectId,
-      chatThreadId: board.chatThreadId,
-      version: board.version,
       createdAt: board.createdAt,
       updatedAt: board.updatedAt,
-      document: JSON.stringify(board),
+      document_json: JSON.stringify(board),
     };
   }
 
@@ -191,8 +178,11 @@ export default async function plugin(bb: BbPluginApi) {
    * exactly the board whose chat it was spawned for, and nothing else.
    */
   function boardForThread(threadId: string): BoardDocument | null {
-    const row = selectByThread.get(threadId);
-    return row === undefined ? null : decode(row);
+    for (const row of selectAllForThread.all()) {
+      const board = decode(row);
+      if (board.chatThreadId === threadId) return board;
+    }
+    return null;
   }
 
   // ------------------------------------------------------------ write paths
