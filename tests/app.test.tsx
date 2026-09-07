@@ -321,6 +321,47 @@ describe("Canvas bb surface", () => {
     view.lifecycle.unmount();
   });
 
+  it("drops a comment pin where you click on empty canvas", async () => {
+    const view = await openBoard(rpcFor());
+    const dock = view.getByRole("toolbar", { name: "Canvas tools" });
+    fireEvent.click(within(dock).getByRole("button", { name: "Comment" }));
+    fireEvent.pointerDown(view.getByTestId("canvas-surface"), { clientX: 320, clientY: 240, button: 0 });
+    await waitFor(() => {
+      const call = view.inspection.rpcCalls.find((item) => item.method === "board_apply_operations");
+      const operations = (call?.input as { operations: Array<{ type: string; comment?: { x: number; y: number; nodeId?: string } }> }).operations;
+      // The pin lands at the clicked point and is attached to no object.
+      expect(operations[0]?.type).toBe("add_comment");
+      expect(operations[0]?.comment?.x).toBe(240);
+      expect(operations[0]?.comment?.y).toBe(176);
+      expect(operations[0]?.comment?.nodeId).toBeUndefined();
+    });
+    view.lifecycle.unmount();
+  });
+
+  it("shows a pinned comment on the canvas and lets you edit, resolve, and delete it", async () => {
+    const pinned: BoardDocument = {
+      ...board,
+      comments: [{ id: "pin-1", nodeId: null, x: 120, y: 90, message: "check this area", resolved: false, createdAt: "now" }],
+    };
+    const view = await openBoard(rpcFor(pinned));
+    const pin = await view.findByRole("button", { name: /Comment: check this area/ });
+    fireEvent.click(pin);
+    const editor = view.getByRole("textbox", { name: "Comment text" });
+    fireEvent.change(editor, { target: { value: "revised note" } });
+    fireEvent.blur(editor);
+    await waitFor(() => {
+      const call = [...view.inspection.rpcCalls].reverse().find((item) => item.method === "board_apply_operations");
+      expect((call?.input as { operations: Array<{ type: string; message?: string }> }).operations[0])
+        .toMatchObject({ type: "update_comment", message: "revised note" });
+    });
+    fireEvent.click(view.getByRole("button", { name: "Resolve" }));
+    await waitFor(() => {
+      const call = [...view.inspection.rpcCalls].reverse().find((item) => item.method === "board_apply_operations");
+      expect((call?.input as { operations: Array<{ type: string }> }).operations[0]?.type).toBe("resolve_comment");
+    });
+    view.lifecycle.unmount();
+  });
+
   it("renders the board-scoped chat tab", async () => {
     const app = await loadPluginApp(() => import("../app"));
     const tab = (app.navPanels[0]!.fixedTabs ?? [])[0]!;

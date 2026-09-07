@@ -430,7 +430,7 @@ describe("comments", () => {
   it("adds a comment against a node, trimmed, unresolved, stamped with now", () => {
     const board = commented();
     expect(board.comments).toEqual([
-      { id: "gen-1", nodeId: "a", message: "Chase the customer", resolved: false, createdAt: LATER },
+      { id: "gen-1", nodeId: "a", x: null, y: null, message: "Chase the customer", resolved: false, createdAt: LATER },
     ]);
   });
 
@@ -596,5 +596,62 @@ describe("extended shape kinds", () => {
     board = applyBoardOperations(board, [{ type: "update_node", id: "b", patch: { text: "Orders" } }], { now: "n", makeId: () => "g" });
     expect(board.nodes[1]?.text).toBe("Orders");
     expect(board.edges).toHaveLength(1);
+  });
+});
+
+describe("canvas-pinned comments", () => {
+  const ctx = { now: "2026-09-07T12:00:00.000Z", makeId: () => "pin-1" };
+  const seeded = () => applyBoardOperations(
+    createEmptyBoard({ id: "pins", title: "Pins", now: "2026-09-07T12:00:00.000Z" }),
+    [{ type: "add_node", node: { id: "a", kind: "sticky", x: 0, y: 0, color: "yellow" } }],
+    { now: "2026-09-07T12:00:00.000Z", makeId: () => "a" },
+  );
+
+  it("pins a comment to a point on the canvas, with no object attached", () => {
+    const board = applyBoardOperations(seeded(), [
+      { type: "add_comment", comment: { message: "check this area", x: 420, y: 260 } },
+    ], ctx);
+    expect(board.comments[0]).toMatchObject({ message: "check this area", nodeId: null, x: 420, y: 260, resolved: false });
+  });
+
+  it("still attaches a comment to an object when given a node id", () => {
+    const board = applyBoardOperations(seeded(), [
+      { type: "add_comment", comment: { nodeId: "a", message: "about this sticky" } },
+    ], ctx);
+    expect(board.comments[0]).toMatchObject({ nodeId: "a", x: null, y: null });
+  });
+
+  it("refuses a comment that is attached to neither an object nor a point", () => {
+    expect(() => applyBoardOperations(seeded(), [
+      { type: "add_comment", comment: { message: "floating" } },
+    ], ctx)).toThrow();
+  });
+
+  it("keeps pinned comments when the objects around them are deleted", () => {
+    let board = applyBoardOperations(seeded(), [
+      { type: "add_comment", comment: { message: "pinned", x: 10, y: 10 } },
+      { type: "add_comment", comment: { nodeId: "a", message: "attached" } },
+    ], { ...ctx, makeId: (() => { let n = 0; return () => `c${++n}`; })() });
+    board = applyBoardOperations(board, [{ type: "remove_nodes", ids: ["a"] }], ctx);
+    // Deleting the object takes its own comment; the free-floating pin survives.
+    expect(board.comments.map((comment) => comment.message)).toEqual(["pinned"]);
+  });
+
+  it("edits a comment's text", () => {
+    let board = applyBoardOperations(seeded(), [
+      { type: "add_comment", comment: { message: "first draft", x: 10, y: 10 } },
+    ], ctx);
+    board = applyBoardOperations(board, [{ type: "update_comment", id: "pin-1", message: "  sharper wording  " }], ctx);
+    expect(board.comments[0]?.message).toBe("sharper wording");
+    expect(() => applyBoardOperations(board, [{ type: "update_comment", id: "ghost", message: "x" }], ctx)).toThrow();
+    expect(() => applyBoardOperations(board, [{ type: "update_comment", id: "pin-1", message: "   " }], ctx)).toThrow();
+  });
+
+  it("reads a board written before pinned comments existed", () => {
+    const upgraded = boardDocumentSchema.parse({
+      ...seeded(),
+      comments: [{ id: "old", nodeId: "a", message: "legacy", resolved: false, createdAt: "then" }],
+    });
+    expect(upgraded.comments[0]).toMatchObject({ nodeId: "a", x: null, y: null });
   });
 });

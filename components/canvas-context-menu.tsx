@@ -193,6 +193,8 @@ export function CanvasContextMenu({
   };
 
   const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    // The menu owns the keyboard while it is open; the canvas must not also act on it.
+    event.stopPropagation();
     const enabled = enabledIndexes(items);
     if (event.key === "Escape") {
       event.preventDefault();

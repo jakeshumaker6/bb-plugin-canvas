@@ -75,7 +75,6 @@ const HINTS: Partial<Record<MenuAction, string>> = {
   delete: "Delete",
   "select-all": "Cmd/Ctrl+A",
   "edit-text": "Enter",
-  "add-comment": "C",
   "zoom-to-fit": "Shift+1",
   group: "Cmd/Ctrl+G",
   ungroup: "Cmd/Ctrl+Shift+G",

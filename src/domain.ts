@@ -16,6 +16,13 @@ export const nodeKindSchema = z.enum([
   "image",
 ]);
 export const colorSchema = z.string().trim().min(1).max(32);
+/** Images must be self-contained. A remote or scripted URL would let a pasted or
+ *  imported board make the IDE fetch attacker-controlled content. */
+export const imageDataSchema = z
+  .string()
+  .max(7_000_000)
+  .refine((value) => /^data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,[A-Za-z0-9+/]*={0,2}$/.test(value),
+    "Image data must be a base64 image data URL");
 export const fontFamilySchema = z.enum(["inter", "serif", "mono"]);
 export const textAlignSchema = z.enum(["left", "center", "right"]);
 export const edgeRoutingSchema = z.enum(["straight", "elbow", "curved"]);
@@ -32,7 +39,7 @@ const persistedBoardNodeSchema = z
     height: z.number().finite().min(32).max(4000),
     text: z.string().max(10_000),
     color: colorSchema,
-    imageData: z.string().max(7_000_000).optional(),
+    imageData: imageDataSchema.optional(),
     fontFamily: fontFamilySchema,
     fontSize: z.number().int().min(10).max(96),
     fontWeight: z.number().int().min(400).max(800),
@@ -72,15 +79,25 @@ export const boardEdgeSchema = z.preprocess((value) => {
   })
   .strict());
 
-export const boardCommentSchema = z
+export const boardCommentSchema = z.preprocess((value) => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return value;
+  // Comments written before canvas pins existed carry a node id and no point.
+  return { x: null, y: null, ...(value as Record<string, unknown>) };
+}, z
   .object({
     id: z.string().min(1).max(100),
-    nodeId: z.string().min(1).max(100),
+    nodeId: z.string().min(1).max(100).nullable(),
+    x: z.number().finite().nullable(),
+    y: z.number().finite().nullable(),
     message: z.string().trim().min(1).max(4000),
     resolved: z.boolean(),
     createdAt: z.string(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (comment) => comment.nodeId !== null || (comment.x !== null && comment.y !== null),
+    "A comment must be attached to an object or pinned to a point",
+  ));
 
 export const boardSummarySchema = z
   .object({
@@ -111,7 +128,7 @@ const nodeInputSchema = z
     height: z.number().finite().min(32).max(4000).optional(),
     text: z.string().max(10_000).optional(),
     color: colorSchema,
-    imageData: z.string().max(7_000_000).optional(),
+    imageData: imageDataSchema.optional(),
     fontFamily: fontFamilySchema.optional(),
     fontSize: z.number().int().min(10).max(96).optional(),
     fontWeight: z.number().int().min(400).max(800).optional(),
@@ -164,10 +181,16 @@ const edgeInputSchema = z
 const commentInputSchema = z
   .object({
     id: z.string().min(1).max(100).optional(),
-    nodeId: z.string().min(1).max(100),
+    nodeId: z.string().min(1).max(100).optional(),
+    x: z.number().finite().optional(),
+    y: z.number().finite().optional(),
     message: z.string().trim().min(1).max(4000),
   })
-  .strict();
+  .strict()
+  .refine(
+    (comment) => comment.nodeId !== undefined || (comment.x !== undefined && comment.y !== undefined),
+    "A comment must name an object or a point on the canvas",
+  );
 
 export const boardOperationSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("add_node"), node: nodeInputSchema }).strict(),
@@ -179,6 +202,7 @@ export const boardOperationSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("reorder_nodes"), ids: z.array(z.string()).min(1).max(2000), placement: placementSchema }).strict(),
   z.object({ type: z.literal("add_comment"), comment: commentInputSchema }).strict(),
   z.object({ type: z.literal("resolve_comment"), id: z.string(), resolved: z.boolean() }).strict(),
+  z.object({ type: z.literal("update_comment"), id: z.string(), message: z.string().trim().min(1).max(4000) }).strict(),
   z.object({ type: z.literal("delete_comment"), id: z.string() }).strict(),
   z.object({ type: z.literal("rename_board"), title: z.string().trim().min(1).max(200) }).strict(),
 ]);
@@ -275,7 +299,7 @@ export function applyBoardOperations(
         const ids = new Set(operation.ids);
         next.nodes = next.nodes.filter((node) => !ids.has(node.id));
         next.edges = next.edges.filter((edge) => !ids.has(edge.source) && !ids.has(edge.target));
-        next.comments = next.comments.filter((comment) => !ids.has(comment.nodeId));
+        next.comments = next.comments.filter((comment) => comment.nodeId === null || !ids.has(comment.nodeId));
         break;
       }
       case "add_edge": {
@@ -329,15 +353,18 @@ export function applyBoardOperations(
         break;
       }
       case "add_comment": {
-        if (!next.nodes.some((node) => node.id === operation.comment.nodeId)) {
-          throw new Error(`Comment node ${operation.comment.nodeId} is missing`);
+        const { nodeId = null, x = null, y = null } = operation.comment;
+        if (nodeId !== null && !next.nodes.some((node) => node.id === nodeId)) {
+          throw new Error(`Comment node ${nodeId} is missing`);
         }
         const id = operation.comment.id ?? context.makeId();
         if (next.comments.some((comment) => comment.id === id)) throw new Error(`Comment ${id} already exists`);
         next.comments.push(
           boardCommentSchema.parse({
             id,
-            nodeId: operation.comment.nodeId,
+            nodeId,
+            x: nodeId === null ? x : null,
+            y: nodeId === null ? y : null,
             message: operation.comment.message,
             resolved: false,
             createdAt: context.now,
@@ -349,6 +376,12 @@ export function applyBoardOperations(
         const comment = next.comments.find((candidate) => candidate.id === operation.id);
         if (comment === undefined) throw new Error(`Comment ${operation.id} is missing`);
         comment.resolved = operation.resolved;
+        break;
+      }
+      case "update_comment": {
+        const comment = next.comments.find((candidate) => candidate.id === operation.id);
+        if (comment === undefined) throw new Error(`Comment ${operation.id} is missing`);
+        comment.message = operation.message;
         break;
       }
       case "delete_comment": {

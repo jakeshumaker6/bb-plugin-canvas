@@ -131,3 +131,10 @@
 @container (max-width: 560px) { .canvas-board-header { gap: 3px; } .canvas-header-actions { gap: 3px; } .canvas-header-actions > button, .canvas-download-wrap > button { padding-inline: 8px; } .canvas-title-label { max-width: 84px; } .selection-toolbar { overflow-x: auto; scrollbar-width: none; } .canvas-zoom-controls, .canvas-history-controls { top: 10px; bottom: auto; } }
 @container (max-width: 360px) { .action-label { display: none; } .canvas-header-actions > button, .canvas-download-wrap > button { width: 32px; padding: 0; } }
 @media (max-width: 760px) { .canvas-library { width: 64px; flex-basis: 64px; } .canvas-library-heading > span, .canvas-library-row .min-w-0, .canvas-library-foot { display: none; } .canvas-library-row { justify-content: center; padding: 7px; } .canvas-inspector { position: absolute; right: 0; top: 0; bottom: 0; width: min(280px, 80vw); } }
+.canvas-pin { position: absolute; z-index: 16; }
+.canvas-pin-dot { width: 30px; height: 30px; display: grid; place-items: center; border: 2px solid white; border-radius: 999px 999px 999px 3px; background: var(--primary); color: var(--primary-foreground); box-shadow: 0 4px 12px rgba(15,23,42,.28); cursor: pointer; }
+.canvas-pin-dot > svg { width: 16px; height: 16px; }
+.canvas-pin.is-resolved .canvas-pin-dot { background: var(--muted-foreground); opacity: .65; }
+.canvas-pin-editor { position: absolute; left: 36px; top: 0; z-index: 17; width: 220px; padding: 9px; display: grid; gap: 7px; border: 1px solid var(--border); border-radius: 10px; background: var(--popover); box-shadow: 0 14px 34px color-mix(in oklab, var(--foreground) 18%, transparent); }
+.canvas-pin-editor textarea { width: 100%; height: 68px; padding: 7px; resize: none; border: 1px solid var(--border); border-radius: 7px; background: var(--background); color: var(--foreground); font-size: 12px; }
+.canvas-pin-actions { display: flex; gap: 10px; color: var(--primary); font-size: 11px; }

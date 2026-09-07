@@ -56,11 +56,14 @@ export type BoardImport =
   | { kind: "reference"; node: ImportedReferenceNode };
 
 function colorValue(id: string): string {
-  return PALETTE[id] ?? (/^#[0-9a-f]{6}$/i.test(id) ? id : PALETTE.gray!);
+  if (Object.hasOwn(PALETTE, id)) return PALETTE[id]!;
+  return /^#[0-9a-f]{6}$/i.test(id) ? id : PALETTE.gray!;
 }
 
 function escapeXml(value: string): string {
   return value
+    // eslint-disable-next-line no-control-regex -- XML 1.0 forbids these outright.
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -69,7 +72,8 @@ function escapeXml(value: string): string {
 }
 
 function num(value: number): string {
-  return String(Math.round((Number.isFinite(value) ? value : 0) * 100) / 100);
+  const rounded = Math.round(value * 100) / 100;
+  return Number.isFinite(rounded) ? String(rounded) : "0";
 }
 
 function encodeBase64(text: string): string {

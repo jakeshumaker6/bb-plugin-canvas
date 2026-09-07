@@ -10,6 +10,7 @@ import {
 import { toast } from "sonner";
 import type { rpcContract } from "./server";
 import type {
+  BoardComment,
   BoardDocument,
   BoardEdge,
   BoardNode,
@@ -508,6 +509,7 @@ function SelectionToolbar({
   locked,
   onLockChange,
   grouped,
+  mutable,
   onGroupChange,
   onTidy,
   onDistribute,
@@ -524,6 +526,7 @@ function SelectionToolbar({
   locked: boolean;
   onLockChange: (locked: boolean) => void;
   grouped: boolean;
+  mutable: boolean;
   onGroupChange: () => void;
   onTidy: () => void;
   onDistribute: (axis: "horizontal" | "vertical") => void;
@@ -537,7 +540,7 @@ function SelectionToolbar({
     <div className="selection-toolbar" role="toolbar" aria-label="Selection properties" style={position} onPointerDown={(event) => event.stopPropagation()}>
       {many ? <span className="selection-count">{nodes.length}</span> : null}
       <div className="selection-color-wrap">
-        <button className="selection-action fill-action" aria-label="Change fill color" title="Fill color" onClick={() => onColorOpenChange(!colorOpen)}>
+        <button className="selection-action fill-action" aria-label="Change fill color" title={mutable ? "Fill color" : "Unlock to restyle"} disabled={!mutable} onClick={() => onColorOpenChange(!colorOpen)}>
           <span style={{ background: colorValue(lead.color) }} />
           <Icon name="ArrowDown" className="size-3" />
         </button>
@@ -572,13 +575,13 @@ function SelectionToolbar({
       {many ? <>
         <span className="selection-divider" />
         {ALIGN_EDGES.map((edge) => (
-          <button key={edge.id} className="selection-action" aria-label={edge.label} title={edge.label} onClick={() => onAlign(edge.id)}>
+          <button key={edge.id} className="selection-action" aria-label={edge.label} title={edge.label} disabled={!mutable} onClick={() => onAlign(edge.id)}>
             <AlignGlyph edge={edge.id} />
           </button>
         ))}
-        <button className="selection-action" aria-label="Tidy up selection" title="Tidy up" onClick={onTidy}><Icon name="GridView" className="size-4" /></button>
-        <button className="selection-action" aria-label="Distribute horizontally" title="Distribute horizontally" disabled={nodes.length < 3} onClick={() => onDistribute("horizontal")}><span className="glyph-rotate"><Icon name="ArrowUpDown" className="size-4" /></span></button>
-        <button className="selection-action" aria-label="Distribute vertically" title="Distribute vertically" disabled={nodes.length < 3} onClick={() => onDistribute("vertical")}><Icon name="ArrowUpDown" className="size-4" /></button>
+        <button className="selection-action" aria-label="Tidy up selection" title="Tidy up" disabled={!mutable} onClick={onTidy}><Icon name="GridView" className="size-4" /></button>
+        <button className="selection-action" aria-label="Distribute horizontally" title="Distribute horizontally" disabled={nodes.length < 3 || !mutable} onClick={() => onDistribute("horizontal")}><span className="glyph-rotate"><Icon name="ArrowUpDown" className="size-4" /></span></button>
+        <button className="selection-action" aria-label="Distribute vertically" title="Distribute vertically" disabled={nodes.length < 3 || !mutable} onClick={() => onDistribute("vertical")}><Icon name="ArrowUpDown" className="size-4" /></button>
         <button className={`selection-action ${grouped ? "is-active" : ""}`} aria-label={grouped ? "Ungroup selection" : "Group selection"} title={grouped ? "Ungroup (Cmd/Ctrl+Shift+G)" : "Group (Cmd/Ctrl+G)"} onClick={onGroupChange}><Icon name="Layers" className="size-4" /></button>
       </> : null}
       <span className="selection-divider" />
@@ -592,7 +595,55 @@ function SelectionToolbar({
       >
         <Icon name={locked ? "SquareUnlock02" : "Lock"} className="size-4" />
       </button>
-      <button className="selection-action danger" aria-label={`Delete selected ${noun}`} title="Delete (Backspace)" onClick={onDelete}><Icon name="Trash2" className="size-4" /></button>
+      <button className="selection-action danger" aria-label={`Delete selected ${noun}`} title={mutable ? "Delete (Backspace)" : "Unlock to delete"} disabled={!mutable} onClick={onDelete}><Icon name="Trash2" className="size-4" /></button>
+    </div>
+  );
+}
+
+function CommentPin({
+  comment,
+  open,
+  onOpenChange,
+  onMessage,
+  onResolve,
+  onDelete,
+}: {
+  comment: BoardComment;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onMessage: (message: string) => void;
+  onResolve: () => void;
+  onDelete: () => void;
+}) {
+  const [draft, setDraft] = useState(comment.message);
+  useEffect(() => setDraft(comment.message), [comment.message]);
+  return (
+    <div className={`canvas-pin ${comment.resolved ? "is-resolved" : ""}`} style={{ left: comment.x ?? 0, top: comment.y ?? 0 }} data-comment-id={comment.id}>
+      <button
+        className="canvas-pin-dot"
+        aria-label={`Comment: ${comment.message}`}
+        aria-expanded={open}
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={() => onOpenChange(!open)}
+      >
+        <ToolGlyph id="comment" />
+      </button>
+      {open ? (
+        <div className="canvas-pin-editor" role="dialog" aria-label="Edit comment" onPointerDown={(event) => event.stopPropagation()}>
+          <textarea
+            aria-label="Comment text"
+            autoFocus
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onBlur={() => { if (draft.trim() !== "" && draft !== comment.message) onMessage(draft.trim()); }}
+          />
+          <div className="canvas-pin-actions">
+            <button onClick={onResolve}>{comment.resolved ? "Reopen" : "Resolve"}</button>
+            <button onClick={onDelete}>Delete</button>
+            <button onClick={() => onOpenChange(false)}>Done</button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -645,6 +696,8 @@ function BoardWorkspace({ board, onBoardChange }: { board: BoardDocument; onBoar
   const [marquee, setMarquee] = useState<SelectionBox | null>(null);
   const [findOpen, setFindOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; at: { x: number; y: number }; target: "canvas" | "object" } | null>(null);
+  const [pinnedComment, setPinnedComment] = useState<string | null>(null);
+  const lastShapeRef = useRef<ShapeKind>("rectangle");
   const [canPaste, setCanPaste] = useState(false);
   const [guides, setGuides] = useState<SnapGuide[]>([]);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
@@ -757,9 +810,9 @@ function BoardWorkspace({ board, onBoardChange }: { board: BoardDocument; onBoar
         void persist([reorderOperation(chosen.map((node) => node.id), placement)]);
         return;
       }
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "d" && chosen.length > 0) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "d" && selectedNow.length > 0) {
         event.preventDefault();
-        void persist(chosen.map(duplicateNodeOperation));
+        void persist(selectedNow.map(duplicateNodeOperation));
         return;
       }
       if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -896,7 +949,8 @@ function BoardWorkspace({ board, onBoardChange }: { board: BoardDocument; onBoar
       const pointerX = event.clientX - rect.left;
       const pointerY = event.clientY - rect.top;
       setViewport((value) => {
-        const zoom = Math.max(0.2, Math.min(2.5, value.zoom * (event.deltaY > 0 ? 0.9 : 1.1)));
+        const step = event.deltaY > 0 ? 0.9 : event.deltaY < 0 ? 1.1 : 1;
+        const zoom = Math.max(0.2, Math.min(2.5, value.zoom * step));
         const scale = zoom / value.zoom;
         return { zoom, x: pointerX - (pointerX - value.x) * scale, y: pointerY - (pointerY - value.y) * scale };
       });
@@ -941,9 +995,23 @@ function BoardWorkspace({ board, onBoardChange }: { board: BoardDocument; onBoar
     }
     setEditingId(null);
     setSelectedEdgeId(null);
-    setConnectorSource(null);
     setColorMenuOpen(false);
     setInspectorOpen(false);
+    setShapeMenuOpen(false);
+    if (tool === "comment") {
+      const point = canvasPoint(event.clientX, event.clientY);
+      const id = globalThis.crypto.randomUUID();
+      void persist([{ type: "add_comment", comment: { id, message: "New note", x: point.x, y: point.y } }]);
+      setPinnedComment(id);
+      setTool("select");
+      return;
+    }
+    if (connectorSource !== null) {
+      setConnectorSource(null);
+      toast.message("Connector cancelled — click an object to start, then a second one to finish.");
+      return;
+    }
+    setConnectorSource(null);
     const base = event.shiftKey ? selectionRef.current : [];
     setSelectedIds(base);
     if (tool !== "select") return;
@@ -971,8 +1039,14 @@ function BoardWorkspace({ board, onBoardChange }: { board: BoardDocument; onBoar
 
   const selectNode = (node: BoardNode, additive: boolean) => {
     if (tool === "connector") {
-      if (connectorSource === null) setConnectorSource(node.id);
-      else if (connectorSource !== node.id) {
+      if (connectorSource === null) {
+        setConnectorSource(node.id);
+        toast.message("Now click the object to connect it to.");
+      } else if (connectorSource === node.id) {
+        setConnectorSource(null);
+        setTool("select");
+        toast.message("Connector cancelled — a connector needs two different objects.");
+      } else if (connectorSource !== node.id) {
         void persist([{ type: "add_edge", edge: { source: connectorSource, target: node.id, color: "ink", routing: "elbow" } }]);
         setConnectorSource(null);
         setTool("select");
@@ -980,6 +1054,7 @@ function BoardWorkspace({ board, onBoardChange }: { board: BoardDocument; onBoar
       return;
     }
     setSelectedIds((current) => {
+      if (tool === "comment") return [node.id];
       const next = additive
         ? (current.includes(node.id) ? current.filter((id) => id !== node.id) : [...current, node.id])
         : (current.includes(node.id) ? current : [node.id]);
@@ -1035,8 +1110,10 @@ function BoardWorkspace({ board, onBoardChange }: { board: BoardDocument; onBoar
       setGuides([]);
       const { dx, dy } = offsetFor(next);
       if (dx === 0 && dy === 0) return;
+      const alive = moving.filter((item) => boardRef.current.nodes.some((current) => current.id === item.id));
+      if (alive.length === 0) return;
       void persist(
-        moving.map((item) => {
+        alive.map((item) => {
           const origin = origins.get(item.id)!;
           return { type: "update_node" as const, id: item.id, patch: { x: origin.x + dx, y: origin.y + dy } };
         }),
@@ -1066,6 +1143,7 @@ function BoardWorkspace({ board, onBoardChange }: { board: BoardDocument; onBoar
   const unlockedSelection = selectedNodes.filter((node) => !node.locked);
   const allLocked = selectedNodes.length > 0 && unlockedSelection.length === 0;
   const duplicateSelected = () => void persist(selectedNodes.map(duplicateNodeOperation));
+  const mutable = unlockedSelection.length > 0;
   const setSelectionLocked = (locked: boolean) =>
     void persist(selectedNodes.filter((node) => node.locked !== locked).map((node) => ({ type: "update_node" as const, id: node.id, patch: { locked } })));
   const deleteSelected = () => {
@@ -1110,7 +1188,7 @@ function BoardWorkspace({ board, onBoardChange }: { board: BoardDocument; onBoar
     if (action === "delete") return deleteSelected();
     if (action === "select-all") return setSelectedIds(board.nodes.filter((node) => !node.locked).map((node) => node.id));
     if (action === "zoom-to-fit") return fit();
-    if (action === "edit-text") return setEditingId(selected?.id ?? null);
+    if (action === "edit-text") return setEditingId(selected === null || selected.locked ? null : selected.id);
     if (action === "add-comment") return setInspectorOpen(true);
     if (action === "group") return groupSelected();
     if (action === "ungroup") return ungroupSelected();
@@ -1156,7 +1234,7 @@ function BoardWorkspace({ board, onBoardChange }: { board: BoardDocument; onBoar
           }}
           colorOpen={colorMenuOpen}
           onColorOpenChange={setColorMenuOpen}
-          onApply={(patch) => void persist(selectedNodes.map((node) => ({ type: "update_node" as const, id: node.id, patch })))}
+          onApply={(patch) => void persist(unlockedSelection.map((node) => ({ type: "update_node" as const, id: node.id, patch })))}
           onComments={() => setInspectorOpen(true)}
           onDuplicate={duplicateSelected}
           onDelete={deleteSelected}
@@ -1164,6 +1242,7 @@ function BoardWorkspace({ board, onBoardChange }: { board: BoardDocument; onBoar
           locked={allLocked}
           onLockChange={setSelectionLocked}
           grouped={grouped}
+          mutable={mutable}
           onGroupChange={() => (grouped ? ungroupSelected() : groupSelected())}
           onTidy={tidySelected}
           onDistribute={distributeSelected}
@@ -1194,7 +1273,7 @@ function BoardWorkspace({ board, onBoardChange }: { board: BoardDocument; onBoar
       {shapeMenuOpen ? (
         <div className="canvas-shape-picker" role="toolbar" aria-label="Shape choices">
           {SHAPE_TOOLS.map((kind) => (
-            <button key={kind} aria-label={SHAPE_LABELS[kind]} className={tool === kind ? "is-active" : ""} onClick={() => { setTool(kind); setShapeMenuOpen(false); }}>
+            <button key={kind} aria-label={SHAPE_LABELS[kind]} className={tool === kind ? "is-active" : ""} onClick={() => { lastShapeRef.current = kind; setTool(kind); setShapeMenuOpen(false); }}>
               <ShapeGlyph kind={kind} />
               <span>{SHAPE_LABELS[kind]}</span>
             </button>
@@ -1208,7 +1287,11 @@ function BoardWorkspace({ board, onBoardChange }: { board: BoardDocument; onBoar
             item={item}
             active={item.id === "shapes" ? isShapeKind(tool) || shapeMenuOpen : tool === item.id}
             onClick={() => {
-              if (item.id === "shapes") { setShapeMenuOpen((open) => !open); return; }
+              if (item.id === "shapes") {
+                setShapeMenuOpen((open) => !open);
+                if (!isShapeKind(tool)) setTool(lastShapeRef.current);
+                return;
+              }
               setShapeMenuOpen(false);
               setTool(item.id);
             }}
@@ -1278,6 +1361,17 @@ function BoardWorkspace({ board, onBoardChange }: { board: BoardDocument; onBoar
               style={{ left: marquee.minX, top: marquee.minY, width: marquee.maxX - marquee.minX, height: marquee.maxY - marquee.minY }}
             />
           )}
+          {board.comments.filter((comment) => comment.nodeId === null).map((comment) => (
+            <CommentPin
+              key={comment.id}
+              comment={comment}
+              open={pinnedComment === comment.id}
+              onOpenChange={(open) => setPinnedComment(open ? comment.id : null)}
+              onMessage={(message) => void persist([{ type: "update_comment", id: comment.id, message }])}
+              onResolve={() => void persist([{ type: "resolve_comment", id: comment.id, resolved: !comment.resolved }])}
+              onDelete={() => { void persist([{ type: "delete_comment", id: comment.id }]); setPinnedComment(null); }}
+            />
+          ))}
           {board.nodes.map((node) => (
             <DiagramNode
               key={node.id}
@@ -1426,7 +1520,7 @@ function CanvasPage({ subPath }: { subPath: string }) {
               }}><Icon name="Trash2" className="size-4" /></Button>
             </div>
           </header>
-          <BoardWorkspace board={board} onBoardChange={setBoard} />
+          <BoardWorkspace key={board.id} board={board} onBoardChange={setBoard} />
         </>}
       </main>
     </div>
