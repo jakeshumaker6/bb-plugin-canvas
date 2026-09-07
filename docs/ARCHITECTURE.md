@@ -62,6 +62,10 @@ and no third-party service.
   product decision of which actions a selection exposes.
 - `src/navigation.ts` — viewport maths, minimap transform, and find ranking.
 - `src/shapes.ts` — SVG path, CSS clip-path, and text inset for each shape.
+- `src/portable.ts` — the interchange boundary: serialise a board to Canvas
+  JSON or to SVG (with the Canvas document embedded so the SVG round-trips),
+  and parse an untrusted import file into either a native board or a reference
+  image. Shared by `app.tsx` (export) and `server.ts` (import).
 - `components/` — React rendering only (minimap, find, context menu, glyphs,
   and the vendored `components/ui` set).
 - `app.tsx` — the single integration point. It is the only place that holds
@@ -98,9 +102,14 @@ each one a member of `boardOperationSchema`:
 ### Chat
 
 The Chat tab is BB's `ThreadChat` bound to the board's `chatThreadId`, which
-the server provisions per board. The agent's tools are registered by the
-server and go through exactly the same validate/apply/commit/publish path as
-the UI. The agent has no privileged write channel.
+the server provisions per board. The server registers two agent tools — one to
+read the board, one to apply operations to it — and the write tool goes through
+exactly the same validate/apply/commit/publish path as the UI. The agent has no
+privileged write channel.
+
+Neither tool takes a board id. The board is resolved from the calling thread,
+and `bb.agents.configure` exposes the tools only to threads originating from
+this plugin: an agent running anywhere else in BB does not see them at all.
 
 ## Invariants
 
@@ -163,7 +172,9 @@ to clean up.
 | Image over the size cap | `imageNodeOperation` throws before any RPC | A toast asking for a smaller image |
 | Image file unreadable | `FileReader.onerror` | "Could not read `<name>`" |
 | PNG export cannot get a 2D context or encode | `downloadPng` throws | A toast; the SVG and JSON exports are unaffected |
-| Import file is not a format Canvas understands | Server rejects the import | A toast; the board is unchanged |
+| Import file is not a format Canvas understands | `parseBoardImport` throws by name | A toast naming the file and the supported extensions; the board is unchanged |
+| Import file is `.fig` or `.jam` | `parseBoardImport` throws | A toast explaining the format is unreadable outside Figma, and which export to use instead |
+| Import file is oversized or empty | `parseBoardImport` throws before any write | A toast; the board is unchanged |
 
 The shape of every one of these is the same: reject at the boundary, leave the
 persisted board untouched, tell the user in words, and never publish a realtime

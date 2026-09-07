@@ -68,8 +68,9 @@ undo step.
 **Boards.** Create, rename, delete, and switch boards from the library rail.
 
 **Import/export.** Export a board as editable Canvas JSON, as SVG, or as PNG.
-Import Canvas JSON (a full round-trip of an exported board), SVG, or a
-PNG/JPEG image.
+Canvas embeds its own document inside the SVG it exports, so a Canvas SVG
+re-imports as a fully editable board — as does a Canvas JSON export. Any other
+SVG, PNG, or JPEG is imported as a reference image on the board.
 
 ## Keyboard
 
@@ -139,8 +140,10 @@ These are design boundaries, not a roadmap.
 - **No Figma sync.** Canvas does not connect to a Figma account and there is no
   live link between a Canvas board and a Figma or FigJam file.
 - **No .fig or .jam import.** Those are Figma's proprietary formats and Canvas
-  cannot open them. To bring work across, export from Figma Design as SVG, or
-  from FigJam as PNG or PDF, and import that.
+  cannot open them; picking one tells you so and points you at the alternative.
+  To bring work across, export from Figma Design as SVG, or from FigJam as PNG
+  or PDF, and import that. A foreign SVG or image comes in as a reference
+  image, not as editable objects.
 
 ## Development
 

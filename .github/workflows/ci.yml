@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Test and typecheck
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Test
+        run: npm test -- --run
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # `npm run build` is deliberately NOT run here.
+      # It shells out to the `bb` CLI, which is not installed on a GitHub
+      # runner and is not available from npm, so adding a build step here
+      # would fail on every run. Run `npm run build` locally before opening a
+      # pull request that touches the manifest, the entry points, or
+      # dependencies. Please do not "fix" CI by adding it back.

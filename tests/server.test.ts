@@ -5,6 +5,7 @@ import {
   type FakePluginHost,
 } from "@get-bb/plugin-sdk/testing";
 import type { BoardDocument, BoardOperation, BoardSummary } from "../src/domain";
+import { serializeBoardJson } from "../src/portable";
 import plugin, { BOARDS_CHANGED, rpcContract } from "../server";
 
 const PLUGIN_ID = "canvas";
@@ -287,6 +288,44 @@ describe("canvas server", () => {
     expect(loaded.inTransactionAtPublish.every((inside) => inside === false)).toBe(true);
     // Committed before the signal: a client refetching on it sees the new version.
     expect((await getBoard(loaded, board.id)).version).toBe(1);
+  });
+
+  it("imports a native board into the target board without changing its identity", async () => {
+    const source = await createBoard(loaded, "Source");
+    const filled = (await call(loaded, "board_apply_operations", {
+      boardId: source.id,
+      operations: DIAGRAM,
+    })) as { board: BoardDocument };
+    const target = await createBoard(loaded, "Target");
+
+    const result = (await call(loaded, "board_import", {
+      boardId: target.id,
+      fileName: "source.canvas.json",
+      content: serializeBoardJson(filled.board),
+    })) as { board: BoardDocument };
+
+    expect(result.board.id).toBe(target.id);
+    expect(result.board.chatThreadId).toBe(target.chatThreadId);
+    expect(result.board.createdAt).toBe(target.createdAt);
+    expect(result.board.nodes.map((node) => node.id)).toEqual(["n1", "n2"]);
+    expect(result.board.version).toBe(1);
+  });
+
+  it("imports a picture as one image node beside the existing content", async () => {
+    const board = await createBoard(loaded, "Pictures");
+    await call(loaded, "board_apply_operations", { boardId: board.id, operations: DIAGRAM });
+
+    const result = (await call(loaded, "board_import", {
+      boardId: board.id,
+      fileName: "sketch.png",
+      content: "data:image/png;base64,aGVsbG8=",
+    })) as { board: BoardDocument };
+
+    expect(result.board.nodes).toHaveLength(3);
+    const image = result.board.nodes.at(-1)!;
+    expect(image.kind).toBe("image");
+    expect(image.x).toBeGreaterThan(400);
+    expect(result.board.version).toBe(2);
   });
 
   it("deletes a board and reports unknown boards clearly", async () => {

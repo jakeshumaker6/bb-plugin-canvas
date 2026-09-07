@@ -28,12 +28,13 @@
   },
   "bb": {
     "name": "Canvas",
-    "description": "A BB plugin with an example todo list.",
+    "description": "Map workflows and architecture on an AI-editable visual canvas inside bb.",
     "branding": {
-      "icon": "ListTodo"
+      "icon": "./assets/canvas.svg"
     },
     "server": "./server.ts",
-    "app": "./app.tsx"
+    "app": "./app.tsx",
+    "skills": []
   },
   "dependencies": {
     "@hugeicons/core-free-icons": "^4.1.3",

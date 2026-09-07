@@ -134,17 +134,18 @@ screen; and no export requires a network connection or an account.
 
 1. Open the destination board and click **Import**.
 2. Choose the file:
-   - A **Canvas JSON** export — restores the board's objects.
-   - An **SVG** — brings the diagram in as board content.
-   - A **PNG or JPEG** — placed on the board as an image object to trace,
-     annotate, or reference.
+   - A **Canvas JSON** export, or an **SVG that Canvas exported** — both carry
+     the Canvas document and restore the board as editable objects.
+   - Any **other SVG, PNG, or JPEG** — placed on the board as a reference image
+     to trace, annotate, or point at.
 3. To bring work out of Figma: export from **Figma Design as SVG**, or from
-   **FigJam as PNG or PDF**, and import that. Canvas cannot open `.fig` or
-   `.jam` files — they are proprietary formats with no published reader.
+   **FigJam as PNG or PDF**, and import that. Picking a `.fig` or `.jam` file
+   is refused with a message saying exactly that — they are proprietary formats
+   with no reader outside Figma.
 4. You can also paste an image from the clipboard, or drag an image file
    straight onto the canvas, to place it at that point.
 
-**Pass condition:** a Canvas JSON export round-trips without loss; an imported
-image lands where it was dropped and can be selected, moved, resized, and
-deleted like any other object; an unsupported file is refused with a message
-and leaves the board unchanged.
+**Pass condition:** a Canvas JSON or Canvas SVG export round-trips without
+loss; a foreign image lands as a reference object that can be selected, moved,
+resized, and deleted like any other; an unsupported or oversized file is
+refused with a message that names the file and leaves the board unchanged.
